@@ -12,6 +12,8 @@ import { photoPicker } from "./photo-picker.js";
 import { SCAN_PHOTO } from "../lib/photos.js";
 
 var MAX_SCANS = 3;
+var CAMERA_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+  '<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
 
 export function renderAddForm(m) {
   var wrap = el("div");
@@ -137,9 +139,19 @@ function renderQuickFill(m) {
   } });
   area.value = m.freeText;
   area.addEventListener("input", function(e){ m.freeText = e.target.value; });
-  box.appendChild(area);
 
-  box.appendChild(renderScans(m));
+  // The camera sits in the textarea's bottom-right corner.
+  var field = el("div", { class: "quick-fill-field" }, [ area ]);
+  if (m.scans.length < MAX_SCANS) {
+    field.appendChild(photoPicker(m.scans.length ? "Scan another page" : "Scan a recipe", function(blob){
+      m.scans.push({ blob: blob, preview: URL.createObjectURL(blob) });
+      m.fillError = "";
+      renderModalInPlace();
+    }, function(msg){ m.fillError = msg; renderModalInPlace(); }, SCAN_PHOTO, CAMERA_SVG));
+  }
+  box.appendChild(field);
+
+  if (m.scans.length) box.appendChild(renderScans(m));
 
   if (m.fillError) box.appendChild(el("div", { class: "form-error", style: "margin:8px 0 0;", text: m.fillError }));
   if (m.filled && !m.fillError) box.appendChild(el("div", { class: "quick-fill-done", text: "Filled in below — check everything, then pick the phases yourself." }));
@@ -153,8 +165,8 @@ function renderQuickFill(m) {
   return box;
 }
 
-// Thumbnails of the scanned pages, each removable, plus the button to add
-// another (up to MAX_SCANS — a recipe spread over a few cookbook pages).
+// Thumbnails of the scanned pages (up to MAX_SCANS — a recipe spread over a
+// few cookbook pages), each removable.
 function renderScans(m) {
   var row = el("div", { class: "scan-row" });
   m.scans.forEach(function(scan, i){
@@ -167,13 +179,6 @@ function renderScans(m) {
       } } })
     ]));
   });
-  if (m.scans.length < MAX_SCANS) {
-    row.appendChild(photoPicker(m.scans.length ? "Add another page" : "Scan a recipe", function(blob){
-      m.scans.push({ blob: blob, preview: URL.createObjectURL(blob) });
-      m.fillError = "";
-      renderModalInPlace();
-    }, function(msg){ m.fillError = msg; renderModalInPlace(); }, SCAN_PHOTO));
-  }
   return row;
 }
 

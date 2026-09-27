@@ -72,6 +72,20 @@ textarea { resize: vertical; min-height: 84px; line-height: 1.4; }
 .quick-fill-head .hint { font-size: 12.5px; color: var(--ink-faint); }
 .quick-fill-done { font-size: 13px; color: var(--accent); margin-top: 8px; }
 
+/* Quick-fill textarea with the camera button in its bottom-right corner;
+   the padding keeps typed text from running under the icon. */
+.quick-fill-field { position: relative; }
+.quick-fill-field textarea { display: block; padding-right: 48px; padding-bottom: 40px; }
+.photo-pick-icon {
+  position: absolute; right: 8px; bottom: 8px;
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.photo-pick-icon:hover { background: var(--surface-sunk); color: var(--ink); }
+
 /* Scanned recipe pages in the quick-fill box: removable thumbnails. */
 .scan-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
 .scan-thumb { position: relative; width: 64px; height: 84px; flex: none; }

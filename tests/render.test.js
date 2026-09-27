@@ -278,7 +278,9 @@ describe("render — modals", function () {
     render();
     expect(root.querySelectorAll(".quick-fill textarea")).toHaveLength(1);
     expect(root.textContent).toContain("Fill in the form");
-    expect(root.querySelector(".quick-fill .photo-pick").textContent).toBe("Scan a recipe");
+    var camera = root.querySelector(".quick-fill-field .photo-pick-icon");
+    expect(camera.getAttribute("aria-label")).toBe("Scan a recipe");
+    expect(camera.textContent).toBe("");
   });
 
   it("shows scanned pages as thumbnails and stops offering more after three", function () {
