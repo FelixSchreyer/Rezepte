@@ -61,7 +61,10 @@ export function renderHeader() {
         el("span", { class: "tag", text: "your family's IBD-friendly recipe box" })
       ]),
       el("div", { class: "top-actions" }, [
-        el("button", { class: "btn btn-primary", attrs: { type: "button" }, text: "+ Add recipe", on: { click: openAddRecipe } }),
+        el("button", { class: "btn btn-primary add-btn", attrs: { type: "button", "aria-label": "Add recipe" }, on: { click: openAddRecipe } }, [
+          document.createTextNode("+"),
+          el("span", { class: "btn-label", text: " Add recipe" })
+        ]),
         renderMembersButton(),
         renderBell(),
         chip

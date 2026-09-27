@@ -17,6 +17,13 @@ input[type=text], input[type=email], input[type=password], input[type=number], t
 }
 textarea { resize: vertical; min-height: 84px; line-height: 1.4; }
 
+/* iOS Safari zooms into any field with text under 16px when it is tapped,
+   and the zoomed page can then be dragged sideways. */
+@media (max-width: 520px) {
+  input[type=text], input[type=email], input[type=password], input[type=number],
+  textarea, select { font-size: 16px; }
+}
+
 .check-grid { display: flex; flex-wrap: wrap; gap: 8px; }
 .check-pill {
   border: 1px solid var(--line);

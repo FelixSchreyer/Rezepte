@@ -9,6 +9,7 @@ header.top {
 }
 .top-row {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap; /* last resort on very narrow screens: wrap, never overflow */
 }
 .brand {
   display: flex; align-items: baseline; gap: 8px;
@@ -72,10 +73,14 @@ header.top {
   text-align: center;
 }
 
-/* Phones: with up to four controls in the top bar, the chip shrinks to its
-   initials so nothing wraps or scrolls sideways. */
+/* Phones: with up to four controls in the top bar, the title gets smaller,
+   "+ Add recipe" becomes "+" and the chip shrinks to its initials, so the
+   row fits a 320px screen instead of pushing the page sideways. */
 @media (max-width: 520px) {
+  .brand h1 { font-size: 22px; }
   .top-actions { gap: 8px; }
+  .add-btn { width: 36px; height: 36px; padding: 0; font-size: 20px; line-height: 1; }
+  .add-btn .btn-label { display: none; }
   .profile-chip { padding: 6px; }
   .profile-chip .who { display: none; }
 }

@@ -8,7 +8,14 @@ body {
   color: var(--ink);
   font-family: var(--sans);
   -webkit-font-smoothing: antialiased;
+  overflow-wrap: break-word; /* a long unbroken word must not widen the page */
 }
+
+/* Safety net against sideways scrolling on phones. `clip` rather than
+   `hidden`: hidden would turn body into a scroll container and break the
+   sticky header. The real fixes are in the layouts; this only catches
+   whatever is still a pixel too wide. */
+html, body { overflow-x: clip; }
 
 
 a { color: inherit; }
