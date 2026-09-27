@@ -1,5 +1,5 @@
-// Members panel (admins only): let pending people in, turn them away, or
-// take access back from someone. The buttons call set_member_status() in
+// "Members & requests" page of the account panel (admins only): let
+// pending people in, turn them away, or take access back from someone. The buttons call set_member_status() in
 // Postgres, which re-checks that the caller is an admin — hiding this panel
 // from everyone else is a convenience, not the protection.
 
@@ -7,17 +7,12 @@ import { state } from "../state.js";
 import { el } from "../lib/dom.js";
 import { membersWithStatus } from "../lib/members.js";
 import { Backend } from "../backend/index.js";
-import { closeModal, renderModalInPlace } from "./modal.js";
+import { renderModalInPlace } from "./modal.js";
 
 var ROLE_LABEL = { patient: "Patient", member: "Member" };
 
 export function renderMembers(m) {
   var wrap = el("div");
-  wrap.appendChild(el("div", { class: "panel-head" }, [
-    el("h2", { text: "Members" }),
-    el("button", { class: "close-x", attrs: { "aria-label": "Close" }, text: "✕", on: { click: closeModal } })
-  ]));
-
   if (m.error) wrap.appendChild(el("div", { class: "form-error", style: "margin:0 0 14px;", text: m.error }));
 
   var pending = membersWithStatus("pending");

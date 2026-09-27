@@ -8,15 +8,10 @@ import { render } from "./app.js";
 import { renderOnboardingForm } from "./onboarding.js";
 import { renderAddForm } from "./add-recipe.js";
 import { renderDetail } from "./detail.js";
-import { renderNotifications } from "./notifications.js";
-import { renderMembers } from "./members.js";
+import { renderAccount } from "./account.js";
 
 export function closeModal() { state.modal = null; render(); }
 
-export function openOnboarding(prefill) {
-  state.modal = { type: "onboarding", name: prefill ? prefill.name : "", role: prefill ? prefill.role : "" , error: "" };
-  render();
-}
 export function openAddRecipe() {
   state.modal = { type: "add", title: "", phases: {}, tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", error: "" };
   render();
@@ -25,12 +20,11 @@ export function openDetail(recipeId) {
   state.modal = { type: "detail", recipeId: recipeId, ratingStars: 0, ratingTol: "", ratingComment: "" };
   render();
 }
-export function openNotifications() {
-  state.modal = { type: "notifications" };
-  render();
-}
-export function openMembers() {
-  state.modal = { type: "members", error: "" };
+// The account panel: a menu plus the pages it drills into — "menu",
+// "ratings", "members" or "details". name/role are the details form's draft.
+export function openAccount(view) {
+  var me = state.myProfile || {};
+  state.modal = { type: "account", view: view || "menu", name: me.name || "", role: me.role || "", error: "" };
   render();
 }
 
@@ -42,8 +36,7 @@ export function renderModal() {
   if (m.type === "onboarding") panel.appendChild(renderOnboardingForm(m));
   else if (m.type === "add") panel.appendChild(renderAddForm(m));
   else if (m.type === "detail") panel.appendChild(renderDetail(m));
-  else if (m.type === "notifications") panel.appendChild(renderNotifications());
-  else if (m.type === "members") panel.appendChild(renderMembers(m));
+  else if (m.type === "account") panel.appendChild(renderAccount(m));
   overlay.appendChild(panel);
   return overlay;
 }

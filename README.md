@@ -96,11 +96,12 @@ src/
     filters.js      Phase dropdown, tag chips, search
     grid.js         Recipe grid, cards, empty state
     modal.js        Overlay shell + which modal is open
-    onboarding.js   Name + role form
+    onboarding.js   Name + role form (first run, and "Your details")
+    account.js      Account panel behind the avatar: menu + pages
     add-recipe.js   Add-a-recipe form
     detail.js       Recipe detail + rating form
-    notifications.js  Recipes waiting for the patient's rating (the bell)
-    members.js      Admin panel: let people in, decline, remove access
+    notifications.js  Account page: recipes waiting for the patient's rating
+    members.js      Account page (admins): let people in, decline, remove access
 styles/             One stylesheet per concern; tokens.css must load first
 tests/
   index.html        Open in a browser to run the suite
@@ -123,8 +124,9 @@ Auth is **email + password**, and an account alone does not get you in:
 1. Someone creates an account and enters their name and role.
 2. That makes a `pending` member. They see a "waiting for approval" screen and
    no data — the database itself returns nothing to them.
-3. An **admin** lets them in (or declines) from the members button in the
-   header. The waiting screen switches to the app by itself.
+3. An **admin** lets them in (or declines) under **Members & requests** in the
+   account panel behind their avatar. The waiting screen switches to the app
+   by itself.
 
 Admins can also take access away again later. Everything is enforced by
 row-level security and the `set_member_status()` function in

@@ -121,69 +121,90 @@ describe("render — access", function () {
     expect(root.querySelectorAll(".card")).toHaveLength(0);
   });
 
-  it("shows admins the members button with the number of open requests", function () {
-    setState({
-      myProfile: profile({ isAdmin: true }),
-      members: {
-        "mock-user-alex": profile({ isAdmin: true }),
-        "u-new": { id: "u-new", email: "n@x.org", name: "New", role: "member", status: "pending", isAdmin: false, joinedAt: 5 }
-      }
-    });
+});
+
+describe("render — account panel", function () {
+  var fresh = { id: "fresh", title: "New soup", phases: ["remission"], tags: [], ingredients: [], addedBy: "mock-user-sam", addedByName: "Sam", createdAt: 10 };
+  var newcomer = { id: "u-new", email: "n@x.org", name: "New Person", role: "member", status: "pending", isAdmin: false, joinedAt: 5 };
+
+  function profile(over) {
+    var p = { id: "mock-user-alex", email: "alex@example.com", name: "Alex Moreau", role: "patient", status: "approved", isAdmin: false, joinedAt: 1 };
+    Object.keys(over || {}).forEach(function (k) { p[k] = over[k]; });
+    return p;
+  }
+  function account(view) {
+    return { type: "account", view: view, name: "Alex Moreau", role: "patient", error: "" };
+  }
+  function rowLabels() {
+    return Array.from(root.querySelectorAll(".settings-row .settings-label")).map(function (n) { return n.textContent; });
+  }
+
+  it("keeps the header to the add button and the avatar", function () {
+    setState({ recipes: [fresh] });
     render();
-    expect(root.querySelectorAll(".members-btn")).toHaveLength(1);
-    expect(root.querySelector(".members-btn .icon-badge").textContent).toBe("1");
+    expect(root.querySelectorAll(".top-actions > *")).toHaveLength(2);
   });
 
-  it("does not show the members button to non-admins", function () {
-    setState({ members: { "u-new": { id: "u-new", name: "New", role: "member", status: "pending" } } });
+  it("badges the avatar with recipes to rate plus open requests", function () {
+    var admin = profile({ isAdmin: true });
+    setState({ recipes: [fresh], myProfile: admin, members: { "mock-user-alex": admin, "u-new": newcomer } });
     render();
-    expect(root.querySelectorAll(".members-btn")).toHaveLength(0);
+    expect(root.querySelector(".profile-chip .icon-badge").textContent).toBe("2");
   });
 
-  it("lists pending people with approve and decline in the members panel", function () {
-    setState({
-      myProfile: profile({ isAdmin: true }),
-      members: {
-        "mock-user-alex": profile({ isAdmin: true }),
-        "u-new": { id: "u-new", email: "n@x.org", name: "New Person", role: "member", status: "pending", isAdmin: false, joinedAt: 5 }
-      },
-      modal: { type: "members", error: "" }
-    });
+  it("shows no badge when nothing is waiting", function () {
+    setState({ recipes: [fresh], ratings: [{ id: "rt", recipeId: "fresh", uid: "mock-user-alex", stars: 4, tolerance: "good" }] });
+    render();
+    expect(root.querySelectorAll(".profile-chip .icon-badge")).toHaveLength(0);
+  });
+
+  it("does not count requests for non-admins or ratings for members", function () {
+    setState({ recipes: [fresh], myProfile: profile({ role: "member" }), members: { "u-new": newcomer } });
+    render();
+    expect(root.querySelectorAll(".profile-chip .icon-badge")).toHaveLength(0);
+  });
+
+  it("offers a patient admin every row, with sign-out last", function () {
+    var admin = profile({ isAdmin: true });
+    setState({ myProfile: admin, members: { "mock-user-alex": admin }, modal: account("menu") });
+    render();
+    expect(rowLabels()).toEqual(["Recipes to rate", "Members & requests", "Your details", "Sign out"]);
+  });
+
+  it("offers a plain member only their details and sign-out", function () {
+    setState({ myProfile: profile({ role: "member" }), modal: account("menu") });
+    render();
+    expect(rowLabels()).toEqual(["Your details", "Sign out"]);
+  });
+
+  it("shows the count on the row it belongs to", function () {
+    setState({ recipes: [fresh], modal: account("menu") });
+    render();
+    expect(root.querySelector(".settings-count").textContent).toBe("1");
+  });
+
+  it("lists pending recipes on the ratings page, with a way back", function () {
+    setState({ recipes: [fresh], modal: account("ratings") });
+    render();
+    expect(root.querySelectorAll(".notif-item")).toHaveLength(1);
+    expect(root.textContent).toContain("New soup");
+    expect(root.querySelectorAll(".back-btn")).toHaveLength(1);
+  });
+
+  it("lists pending people with approve and decline on the members page", function () {
+    var admin = profile({ isAdmin: true });
+    setState({ myProfile: admin, members: { "mock-user-alex": admin, "u-new": newcomer }, modal: account("members") });
     render();
     expect(root.textContent).toContain("New Person");
     expect(root.textContent).toContain("Let in");
     expect(root.textContent).toContain("Decline");
   });
-});
 
-describe("render — notification bell", function () {
-  var fresh = { id: "fresh", title: "New soup", phases: ["remission"], tags: [], ingredients: [], addedBy: "mock-user-sam", addedByName: "Sam", createdAt: 10 };
-
-  it("shows a badge with the number of unrated new recipes for a patient", function () {
-    setState({ recipes: [fresh] });
+  it("shows the name and role form on the details page", function () {
+    setState({ modal: account("details") });
     render();
-    expect(root.querySelectorAll(".bell")).toHaveLength(1);
-    expect(root.querySelector(".bell .icon-badge").textContent).toBe("1");
-  });
-
-  it("shows the bell without a badge when nothing is pending", function () {
-    setState({ recipes: [fresh], ratings: [{ id: "rt", recipeId: "fresh", uid: "mock-user-alex", stars: 4, tolerance: "good" }] });
-    render();
-    expect(root.querySelectorAll(".bell")).toHaveLength(1);
-    expect(root.querySelectorAll(".bell .icon-badge")).toHaveLength(0);
-  });
-
-  it("does not show the bell to members", function () {
-    setState({ recipes: [fresh], myProfile: { name: "Sam Moreau", role: "member", status: "approved", joinedAt: 1 } });
-    render();
-    expect(root.querySelectorAll(".bell")).toHaveLength(0);
-  });
-
-  it("lists pending recipes in the notifications panel", function () {
-    setState({ recipes: [fresh], modal: { type: "notifications" } });
-    render();
-    expect(root.querySelectorAll(".notif-item")).toHaveLength(1);
-    expect(root.textContent).toContain("New soup");
+    expect(root.querySelector(".overlay input[type=text]").value).toBe("Alex Moreau");
+    expect(root.textContent).toContain("Save changes");
   });
 });
 
@@ -202,8 +223,8 @@ describe("render — modals", function () {
   });
 
   it("opens onboarding, without recursing, when the profile is missing", function () {
-    // render() calls openOnboarding() when there is no profile, and
-    // openOnboarding() calls render() straight back. Guard against that pair
+    // render() opens onboarding when there is no profile. It used to do that
+    // through a helper that called render() straight back. Guard against that pair
     // becoming an infinite loop: a new user hits this path on first visit.
     setState({ recipes: SEED_RECIPES, myProfile: null });
     render();

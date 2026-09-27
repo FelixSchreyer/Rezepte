@@ -1,23 +1,29 @@
-// First-run (and later "Your details") form: name + role. On first run it
-// creates the pending members row that an admin then approves.
+// Name + role form. Used twice: as the first-run onboarding modal, which
+// creates the pending members row an admin then approves, and as the
+// "Your details" page of the account panel (see account.js).
 
 import { state } from "../state.js";
 import { el } from "../lib/dom.js";
 import { Backend } from "../backend/index.js";
 import { signOut } from "../boot.js";
+import { render } from "./app.js";
 import { closeModal, renderModalInPlace } from "./modal.js";
 
+// First run: cannot be dismissed, so it carries its own way out.
 export function renderOnboardingForm(m) {
   var wrap = el("div");
-  var canDismiss = !!state.myProfile;
-  var head = el("div", { class: "panel-head" }, [
-    el("h2", { text: state.myProfile ? "Your details" : "Welcome to Gut & Grain" }),
-    canDismiss ? el("button", { class: "close-x", attrs: { "aria-label": "Close" }, text: "✕", on: { click: closeModal } }) : null
-  ]);
-  wrap.appendChild(head);
-  if (!state.myProfile) {
-    wrap.appendChild(el("p", { style: "color:var(--ink-soft); font-size:14px; margin-top:-8px;", text: "Tell us who's cooking. An admin sees this when deciding to let you in." }));
-  }
+  wrap.appendChild(el("div", { class: "panel-head" }, [ el("h2", { text: "Welcome to Gut & Grain" }) ]));
+  wrap.appendChild(el("p", { style: "color:var(--ink-soft); font-size:14px; margin-top:-8px;", text: "Tell us who's cooking. An admin sees this when deciding to let you in." }));
+  wrap.appendChild(renderProfileFields(m));
+  wrap.appendChild(el("button", {
+    class: "btn btn-ghost btn-block", style: "margin-top:8px;",
+    attrs: { type: "button" }, text: "Sign out", on: { click: signOut }
+  }));
+  return wrap;
+}
+
+export function renderProfileFields(m) {
+  var wrap = el("div");
 
   var nameField = el("label", { class: "field" }, [
     el("span", { class: "lbl", text: "Your name" })
@@ -54,10 +60,6 @@ export function renderOnboardingForm(m) {
     text: state.myProfile ? "Save changes" : "Request access",
     on: { click: function(){ submitOnboarding(m); } }
   }));
-  wrap.appendChild(el("button", {
-    class: "btn btn-ghost btn-block", style: "margin-top:8px;",
-    attrs: { type: "button" }, text: "Sign out", on: { click: signOut }
-  }));
   return wrap;
 }
 
@@ -76,7 +78,9 @@ export function submitOnboarding(m) {
     // A fresh row normally arrives through the members subscription too;
     // fetching it here means the pending screen does not wait on realtime.
     if (profile) state.myProfile = profile;
-    closeModal();
+    // From the account panel, go back to its menu; first run just closes.
+    if (m.type === "account") { m.view = "menu"; m.error = ""; render(); }
+    else closeModal();
   }).catch(function(){
     m.error = "Couldn't save — check your connection and try again.";
     renderModalInPlace();

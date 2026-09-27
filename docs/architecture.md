@@ -166,9 +166,18 @@ admin. Only `patient` sees the rating form — the app states this in a banner
 rather than hiding it silently. This is a UI convention, not a security
 boundary: the RLS policies let any approved member insert their own rating.
 
-Patients also get a bell in the header whose badge counts recipes waiting for
-their rating (`pendingRatings()` in `lib/recipes.js`): added by someone else,
-created at or after the patient's `joinedAt`, and not yet rated by them.
-There is no notifications table — the count is derived from `recipes` and
-`ratings`, so it updates live through the existing subscriptions and clears
-itself once the rating is saved.
+## The account panel
+
+The avatar in the header opens a settings-style panel (`ui/account.js`): a
+menu of grouped rows that drills into pages within the same modal —
+"Recipes to rate" for patients, "Members & requests" for admins, "Your
+details" for everyone, and "Sign out". `state.modal.view` says which page is
+showing. Rows only appear for the people they apply to, and their counts add
+up to the badge on the avatar, so nothing waiting is hidden behind a tap
+without a hint.
+
+"Recipes to rate" lists what `pendingRatings()` in `lib/recipes.js` returns:
+added by someone else, created at or after the patient's `joinedAt`, and not
+yet rated by them. There is no notifications table — the count is derived
+from `recipes` and `ratings`, so it updates live through the existing
+subscriptions and clears itself once the rating is saved.

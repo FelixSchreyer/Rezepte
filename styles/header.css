@@ -50,21 +50,10 @@ header.top {
 .profile-chip .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
 .profile-chip .who .role { display: block; color: var(--ink-faint); font-size: 11px; }
 
-/* Round icon buttons (members for admins, bell for patients) with a count badge. */
-.icon-btn {
-  position: relative;
-  width: 36px; height: 36px; flex: none;
-  display: flex; align-items: center; justify-content: center;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--ink-soft);
-  border-radius: 50%;
-  cursor: pointer;
-}
-.icon-btn:hover { border-color: var(--ink-faint); color: var(--ink); }
-.icon-btn-icon { display: flex; }
+/* Count badge on the avatar: everything waiting in the account panel. */
+.profile-chip { position: relative; }
 .icon-badge {
-  position: absolute; top: -4px; right: -4px;
+  position: absolute; top: -5px; right: -5px;
   min-width: 18px; height: 18px; padding: 0 5px;
   border-radius: 999px;
   background: var(--danger); color: #FFFFFF;
@@ -73,9 +62,9 @@ header.top {
   text-align: center;
 }
 
-/* Phones: with up to four controls in the top bar, the title gets smaller,
-   "+ Add recipe" becomes "+" and the chip shrinks to its initials, so the
-   row fits a 320px screen instead of pushing the page sideways. */
+/* Phones: the title gets smaller, "+ Add recipe" becomes "+" and the chip
+   shrinks to its initials, so the row fits a 320px screen instead of
+   pushing the page sideways. */
 @media (max-width: 520px) {
   .brand h1 { font-size: 22px; }
   .top-actions { gap: 8px; }

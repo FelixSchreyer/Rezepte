@@ -18,9 +18,9 @@ export function render() {
   if (!state.ready) { root.appendChild(renderLoading()); return; }
   if (!state.uid) { root.appendChild(renderAuth()); return; }
 
-  // Signed in but no members row yet: name + role first. Set the modal
-  // directly rather than via openOnboarding(), which would call render()
-  // straight back.
+  // Signed in but no members row yet: name + role first. The modal is set
+  // here directly — going through an open*() helper would call render()
+  // straight back and recurse.
   if (!state.myProfile) {
     if (!(state.modal && state.modal.type === "onboarding")) {
       state.modal = { type: "onboarding", name: "", role: "", error: "" };
