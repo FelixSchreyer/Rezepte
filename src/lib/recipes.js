@@ -26,6 +26,22 @@ export function ratingSummary(recipeId) {
   return { avg: avg, count: rs.length, tolerance: bestTol };
 }
 
+// Recipes waiting for the signed-in patient's rating — what the header bell
+// counts. Only recipes added by someone else since the patient joined count:
+// the recipe box that existed before they arrived is not "new", and they do
+// not need telling about a recipe they added themselves. Non-patients never
+// have pending ratings. Newest first.
+export function pendingRatings() {
+  var me = state.myProfile;
+  if (!me || me.role !== "patient") return [];
+  var since = me.joinedAt || 0;
+  var rated = {};
+  state.ratings.forEach(function(r){ if (r.uid === state.uid) rated[r.recipeId] = true; });
+  return state.recipes.filter(function(r){
+    return !rated[r.id] && r.addedBy !== state.uid && (r.createdAt||0) >= since;
+  }).sort(function(a,b){ return (b.createdAt||0) - (a.createdAt||0); });
+}
+
 export function filteredRecipes() {
   var tagFilters = Object.keys(state.activeTags).filter(function(t){ return state.activeTags[t]; });
   var q = state.search.trim().toLowerCase();

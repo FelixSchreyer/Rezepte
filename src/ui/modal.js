@@ -8,6 +8,7 @@ import { render } from "./app.js";
 import { renderOnboardingForm } from "./onboarding.js";
 import { renderAddForm } from "./add-recipe.js";
 import { renderDetail } from "./detail.js";
+import { renderNotifications } from "./notifications.js";
 
 export function closeModal() { state.modal = null; render(); }
 
@@ -23,6 +24,10 @@ export function openDetail(recipeId) {
   state.modal = { type: "detail", recipeId: recipeId, ratingStars: 0, ratingTol: "", ratingComment: "" };
   render();
 }
+export function openNotifications() {
+  state.modal = { type: "notifications" };
+  render();
+}
 
 export function renderModal() {
   var m = state.modal;
@@ -32,6 +37,7 @@ export function renderModal() {
   if (m.type === "onboarding") panel.appendChild(renderOnboardingForm(m));
   else if (m.type === "add") panel.appendChild(renderAddForm(m));
   else if (m.type === "detail") panel.appendChild(renderDetail(m));
+  else if (m.type === "notifications") panel.appendChild(renderNotifications());
   overlay.appendChild(panel);
   return overlay;
 }

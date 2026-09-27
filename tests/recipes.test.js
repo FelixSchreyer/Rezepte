@@ -7,7 +7,7 @@
 
 import { describe, it, expect } from "./harness.js";
 import { state } from "../src/state.js";
-import { allTags, ratingsFor, ratingSummary, filteredRecipes, starString } from "../src/lib/recipes.js";
+import { allTags, ratingsFor, ratingSummary, filteredRecipes, pendingRatings, starString } from "../src/lib/recipes.js";
 
 function setState(patch) {
   state.recipes = [];
@@ -15,6 +15,8 @@ function setState(patch) {
   state.activePhase = null;
   state.activeTags = {};
   state.search = "";
+  state.uid = null;
+  state.myProfile = null;
   Object.keys(patch || {}).forEach(function (k) { state[k] = patch[k]; });
 }
 
@@ -166,6 +168,44 @@ describe("filteredRecipes", function () {
   it("returns nothing when the filters exclude everything", function () {
     setState({ recipes: [congee, dal, eggs], activePhase: "severe", search: "dal" });
     expect(filteredRecipes()).toEqual([]);
+  });
+});
+
+describe("pendingRatings", function () {
+  var patient = { name: "Alex", role: "patient", joinedAt: 100 };
+  var fresh = recipe({ id: "fresh", addedBy: "sam", createdAt: 200 });
+  var older = recipe({ id: "older", addedBy: "sam", createdAt: 50 });
+  var mine = recipe({ id: "mine", addedBy: "me", createdAt: 300 });
+
+  it("lists new recipes by others that the patient has not rated", function () {
+    setState({ uid: "me", myProfile: patient, recipes: [fresh, older, mine] });
+    expect(pendingRatings().map(function (r) { return r.id; })).toEqual(["fresh"]);
+  });
+
+  it("drops a recipe once the patient has rated it", function () {
+    setState({ uid: "me", myProfile: patient, recipes: [fresh], ratings: [rating({ recipeId: "fresh", uid: "me" })] });
+    expect(pendingRatings()).toEqual([]);
+  });
+
+  it("ignores ratings by other people", function () {
+    setState({ uid: "me", myProfile: patient, recipes: [fresh], ratings: [rating({ recipeId: "fresh", uid: "sam" })] });
+    expect(pendingRatings()).toHaveLength(1);
+  });
+
+  it("sorts newest first", function () {
+    var newer = recipe({ id: "newer", addedBy: "sam", createdAt: 400 });
+    setState({ uid: "me", myProfile: patient, recipes: [fresh, newer] });
+    expect(pendingRatings().map(function (r) { return r.id; })).toEqual(["newer", "fresh"]);
+  });
+
+  it("is always empty for members", function () {
+    setState({ uid: "me", myProfile: { name: "Sam", role: "member", joinedAt: 0 }, recipes: [fresh] });
+    expect(pendingRatings()).toEqual([]);
+  });
+
+  it("is empty before a profile exists", function () {
+    setState({ uid: "me", recipes: [fresh] });
+    expect(pendingRatings()).toEqual([]);
   });
 });
 

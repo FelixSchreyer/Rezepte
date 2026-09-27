@@ -48,3 +48,26 @@ header.top {
 }
 .profile-chip .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
 .profile-chip .who .role { display: block; color: var(--ink-faint); font-size: 11px; }
+
+/* Notification bell (patients only) with its unread-count badge. */
+.bell {
+  position: relative;
+  width: 36px; height: 36px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-soft);
+  border-radius: 50%;
+  cursor: pointer;
+}
+.bell:hover { border-color: var(--ink-faint); color: var(--ink); }
+.bell-icon { display: flex; }
+.bell-badge {
+  position: absolute; top: -4px; right: -4px;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 999px;
+  background: var(--danger); color: #FFFFFF;
+  border: 2px solid var(--bg);
+  font-size: 10px; font-weight: 700; line-height: 14px;
+  text-align: center;
+}

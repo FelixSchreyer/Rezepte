@@ -89,6 +89,37 @@ describe("render — the recipe grid", function () {
   });
 });
 
+describe("render — notification bell", function () {
+  var fresh = { id: "fresh", title: "New soup", phases: ["remission"], tags: [], ingredients: [], addedBy: "mock-user-sam", addedByName: "Sam", createdAt: 10 };
+
+  it("shows a badge with the number of unrated new recipes for a patient", function () {
+    setState({ recipes: [fresh] });
+    render();
+    expect(root.querySelectorAll(".bell")).toHaveLength(1);
+    expect(root.querySelector(".bell-badge").textContent).toBe("1");
+  });
+
+  it("shows the bell without a badge when nothing is pending", function () {
+    setState({ recipes: [fresh], ratings: [{ id: "rt", recipeId: "fresh", uid: "mock-user-alex", stars: 4, tolerance: "good" }] });
+    render();
+    expect(root.querySelectorAll(".bell")).toHaveLength(1);
+    expect(root.querySelectorAll(".bell-badge")).toHaveLength(0);
+  });
+
+  it("does not show the bell to members", function () {
+    setState({ recipes: [fresh], myProfile: { name: "Sam Moreau", role: "member", joinedAt: 1 } });
+    render();
+    expect(root.querySelectorAll(".bell")).toHaveLength(0);
+  });
+
+  it("lists pending recipes in the notifications panel", function () {
+    setState({ recipes: [fresh], modal: { type: "notifications" } });
+    render();
+    expect(root.querySelectorAll(".notif-item")).toHaveLength(1);
+    expect(root.textContent).toContain("New soup");
+  });
+});
+
 describe("render — modals", function () {
   it("renders the detail panel for an open recipe", function () {
     setState({ recipes: SEED_RECIPES, modal: { type: "detail", recipeId: "r-congee", ratingStars: 0, ratingTol: "", ratingComment: "" } });

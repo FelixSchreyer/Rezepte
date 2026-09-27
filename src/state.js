@@ -16,5 +16,5 @@ export var state = {
   activePhase: null,
   activeTags: {},        // tag -> true
   search: "",
-  modal: null            // {type: 'onboarding'|'add'|'detail', ...}
+  modal: null            // {type: 'onboarding'|'add'|'detail'|'notifications', ...}
 };

@@ -132,3 +132,10 @@ reading the singleton, these tests get shorter.
 rating form — the app states this in a banner rather than hiding it silently.
 This is a UI convention, not a security boundary: the RLS policy in
 `db/schema.sql` lets any authenticated user insert their own rating.
+
+Patients also get a bell in the header whose badge counts recipes waiting for
+their rating (`pendingRatings()` in `lib/recipes.js`): added by someone else,
+created at or after the patient's `joinedAt`, and not yet rated by them.
+There is no notifications table — the count is derived from `recipes` and
+`ratings`, so it updates live through the existing subscriptions and clears
+itself once the rating is saved.

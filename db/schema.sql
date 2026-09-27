@@ -76,6 +76,17 @@ create policy "ratings: update own rating only"
   on public.ratings for update
   using (auth.uid() = uid);
 
+-- ---------- table privileges ----------
+-- RLS policies above decide *which rows*; these grants decide whether the
+-- role may touch the table at all. Newer Supabase projects no longer grant
+-- them automatically, and without them every request fails with
+-- "permission denied for table". Only `authenticated` is granted: the app
+-- always signs in (anonymously) before its first query.
+grant usage on schema public to authenticated;
+grant select, insert, update on public.members to authenticated;
+grant select, insert         on public.recipes to authenticated;
+grant select, insert, update on public.ratings to authenticated;
+
 -- ---------- realtime (so all devices see changes live) ----------
 alter publication supabase_realtime add table public.members;
 alter publication supabase_realtime add table public.recipes;

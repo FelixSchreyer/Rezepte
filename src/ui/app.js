@@ -28,7 +28,9 @@ export function render() {
     root.appendChild(renderModal());
   }
 
-  if (!state.myProfile) {
+  // openOnboarding() calls render() again; only open it if it isn't already
+  // open, or the two recurse forever.
+  if (!state.myProfile && !(state.modal && state.modal.type === "onboarding")) {
     openOnboarding(null);
   }
 }
