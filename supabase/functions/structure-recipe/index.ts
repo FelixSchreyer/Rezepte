@@ -5,12 +5,13 @@
 // It lives in the function's secrets (GEMINI_API_KEY), and only approved
 // members may call this, so nobody else can spend the free quota.
 //
-//   POST { text: string, tags: string[] }
+//   POST { text?: string, images?: [{ mimeType, data (base64) }], tags: string[] }
+//        text, photos of a printed or handwritten recipe (up to 3 pages), or both
 //   200  { title, ingredients: string[], instructions, prepMinutes, tags: string[] }
 //   4xx/5xx { error: string }   (429 = quota used up, 503 = Gemini busy)
 //
-// The input may be in any language (typed or dictated); the fields always
-// come back in English, the language the recipe box is kept in.
+// The input may be in any language (typed, dictated or photographed); the
+// fields always come back in English, the language the recipe box is kept in.
 //
 // Phases are deliberately not produced: which illness phase a dish suits is
 // a medical judgement the family makes, not the model.
@@ -32,6 +33,9 @@ const MODELS = (Deno.env.get("GEMINI_MODELS") ?? Deno.env.get("GEMINI_MODEL") ??
   .map((m) => m.trim().replace(/^models\//, ""))
   .filter(Boolean);
 const MAX_INPUT = 8000;
+const MAX_IMAGES = 3;
+const MAX_IMAGE_BASE64 = 6_000_000; // ~4.5 MB per photo; the app sends ~1 MB
+const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -59,9 +63,9 @@ const RESPONSE_SCHEMA = {
   required: ["title", "ingredients", "instructions", "tags"],
 };
 
-function prompt(text: string, tags: string[]) {
+function prompt(text: string, imageCount: number, tags: string[]) {
   return [
-    "You turn a home cook's recipe, written or dictated in free text, into structured fields.",
+    "You turn a home cook's recipe into structured fields. It comes as free text (typed or dictated), as photos of a printed or handwritten recipe, or both.",
     "Rules:",
     "- The recipe may be in any language. Always write every field in English, translating as needed.",
     "- Translate units and cooking terms to their usual English form (e.g. \"EL\" -> \"tbsp\", \"TL\" -> \"tsp\", \"Prise\" -> \"pinch\"), but keep the amounts and metric units as given; do not convert grams to cups.",
@@ -72,9 +76,14 @@ function prompt(text: string, tags: string[]) {
     "- prepMinutes: total time in minutes if stated or clearly implied, otherwise null.",
     "- tags: only from this list, and only when the recipe clearly fits: " + JSON.stringify(tags),
     "- Dictated text may contain filler words and self-corrections; use the corrected version.",
+    ...(imageCount ? [
+      "- Photos: read them carefully, including handwriting. Several photos are consecutive pages of the same recipe.",
+      "- Ignore anything on the page that is not this recipe (other recipes, page numbers, ads, stains).",
+      "- If an amount or word is illegible, leave it out rather than guess.",
+      "- If free text is given too, it adds to or corrects the photos (e.g. \"half the amount\") — follow it.",
+    ] : []),
     "",
-    "Recipe:",
-    text,
+    text ? "Recipe text:\n" + text : "The recipe is in the attached photo" + (imageCount > 1 ? "s." : "."),
   ].join("\n");
 }
 
@@ -99,15 +108,34 @@ Deno.serve(async (req) => {
   const apiKey = Deno.env.get("GEMINI_API_KEY");
   if (!apiKey) return reply(500, { error: "GEMINI_API_KEY is not set" });
 
-  let body: { text?: unknown; tags?: unknown };
+  let body: { text?: unknown; images?: unknown; tags?: unknown };
   try { body = await req.json(); } catch { return reply(400, { error: "invalid JSON" }); }
   const text = typeof body.text === "string" ? body.text.trim() : "";
-  if (!text) return reply(400, { error: "text is empty" });
   if (text.length > MAX_INPUT) return reply(400, { error: "text is too long" });
   const knownTags = Array.isArray(body.tags) ? body.tags.filter((t): t is string => typeof t === "string") : [];
 
+  const rawImages = Array.isArray(body.images) ? body.images : [];
+  if (rawImages.length > MAX_IMAGES) return reply(400, { error: "too many photos" });
+  const images: { mimeType: string; data: string }[] = [];
+  for (const img of rawImages) {
+    const mimeType = (img as { mimeType?: unknown })?.mimeType;
+    const data = (img as { data?: unknown })?.data;
+    if (typeof mimeType !== "string" || !IMAGE_TYPES.includes(mimeType) || typeof data !== "string" || !data) {
+      return reply(400, { error: "invalid photo" });
+    }
+    if (data.length > MAX_IMAGE_BASE64) return reply(413, { error: "photo too large" });
+    images.push({ mimeType, data });
+  }
+  if (!text && !images.length) return reply(400, { error: "nothing to read" });
+
   const request = JSON.stringify({
-    contents: [{ role: "user", parts: [{ text: prompt(text, knownTags) }] }],
+    contents: [{
+      role: "user",
+      parts: [
+        ...images.map((img) => ({ inline_data: { mime_type: img.mimeType, data: img.data } })),
+        { text: prompt(text, images.length, knownTags) },
+      ],
+    }],
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: RESPONSE_SCHEMA,

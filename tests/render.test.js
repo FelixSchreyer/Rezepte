@@ -268,16 +268,25 @@ describe("render — modals", function () {
   });
 
   it("renders the add-recipe form", function () {
-    setState({ recipes: SEED_RECIPES, modal: { type: "add", title: "", phases: {}, tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", error: "" } });
+    setState({ recipes: SEED_RECIPES, modal: { type: "add", title: "", phases: {}, tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", photoBlob: null, photoPreview: "", saving: false, error: "", freeText: "", scans: [], filling: false, filled: false, fillError: "" } });
     render();
     expect(root.textContent).toContain("Add a recipe");
   });
 
   it("offers the free-text quick fill above the form", function () {
-    setState({ recipes: SEED_RECIPES, modal: { type: "add", title: "", phases: {}, tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", photoBlob: null, photoPreview: "", saving: false, error: "", freeText: "", filling: false, filled: false, fillError: "" } });
+    setState({ recipes: SEED_RECIPES, modal: { type: "add", title: "", phases: {}, tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", photoBlob: null, photoPreview: "", saving: false, error: "", freeText: "", scans: [], filling: false, filled: false, fillError: "" } });
     render();
     expect(root.querySelectorAll(".quick-fill textarea")).toHaveLength(1);
     expect(root.textContent).toContain("Fill in the form");
+    expect(root.querySelector(".quick-fill .photo-pick").textContent).toBe("Scan a recipe");
+  });
+
+  it("shows scanned pages as thumbnails and stops offering more after three", function () {
+    var page = { blob: null, preview: "data:image/gif;base64,R0lGODlhAQABAAAAACw=" };
+    setState({ recipes: SEED_RECIPES, modal: { type: "add", title: "", phases: {}, tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", photoBlob: null, photoPreview: "", saving: false, error: "", freeText: "", scans: [page, page, page], filling: false, filled: false, fillError: "" } });
+    render();
+    expect(root.querySelectorAll(".scan-thumb")).toHaveLength(3);
+    expect(root.querySelectorAll(".quick-fill .photo-pick")).toHaveLength(0);
   });
 
   it("opens onboarding, without recursing, when the profile is missing", function () {

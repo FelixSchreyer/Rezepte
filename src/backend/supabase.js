@@ -1,5 +1,6 @@
 import { SUPABASE_URL, SUPABASE_KEY } from "../config.js";
 import { mapMember, mapRecipe, mapRating } from "./mappers.js";
+import { blobToBase64 } from "../lib/photos.js";
 
 /**
  * ============================================================
@@ -30,8 +31,9 @@ import { mapMember, mapRecipe, mapRating } from "./mappers.js";
  *   uploadPhoto(uid, blob)       -> Promise<path>   (a JPEG, already resized)
  *   photoUrls(paths)             -> Promise<{ path: url }>  (valid ~24h)
  *   setRecipePhoto(recipeId, path) -> Promise<void>
- *   structureRecipe(text, tags)  -> Promise<{ title, ingredients, instructions, prepMinutes, tags }>
- *                                   (rejects with .code "rate" | "busy" | "missing" | "denied" | "failed")
+ *   structureRecipe(text, tags, images) -> Promise<{ title, ingredients, instructions, prepMinutes, tags }>
+ *                                   images: JPEG Blobs of a printed/handwritten recipe (optional, up to 3)
+ *                                   (rejects with .code "rate" | "busy" | "large" | "missing" | "denied" | "failed")
  *   upsertRating(recipeId, uid, data) -> Promise<void>
  *   fetchFilterState(uid)        -> Promise<Object | null>
  *   saveFilterState(uid, data)   -> Promise<void>
@@ -215,13 +217,17 @@ export const Backend = (function () {
 
     // Free text -> form fields, via the structure-recipe Edge Function
     // (supabase/functions/structure-recipe), which holds the Gemini key.
-    structureRecipe: async function (text, tags) {
-      var res = await sb.functions.invoke("structure-recipe", { body: { text: text, tags: tags } });
+    structureRecipe: async function (text, tags, images) {
+      var encoded = await Promise.all((images || []).map(function (blob) {
+        return blobToBase64(blob).then(function (data) { return { mimeType: blob.type || "image/jpeg", data: data }; });
+      }));
+      var res = await sb.functions.invoke("structure-recipe", { body: { text: text, tags: tags, images: encoded } });
       if (res.error) {
         var status = res.error.context && res.error.context.status;
         var err = new Error(res.error.message || "structure-recipe failed");
         err.code = status === 429 ? "rate"
           : status === 503 ? "busy"
+          : status === 413 ? "large"
           : status === 404 ? "missing"
           : (status === 401 || status === 403) ? "denied"
           : "failed";

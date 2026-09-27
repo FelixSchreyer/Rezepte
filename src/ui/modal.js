@@ -13,7 +13,7 @@ import { renderAccount } from "./account.js";
 export function closeModal() { state.modal = null; render(); }
 
 export function openAddRecipe() {
-  state.modal = { type: "add", title: "", phases: {}, tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", photoBlob: null, photoPreview: "", saving: false, error: "", freeText: "", filling: false, filled: false, fillError: "" };
+  state.modal = { type: "add", title: "", phases: {}, tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", photoBlob: null, photoPreview: "", saving: false, error: "", freeText: "", scans: [], filling: false, filled: false, fillError: "" };
   render();
 }
 export function openDetail(recipeId) {

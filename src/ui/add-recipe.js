@@ -1,5 +1,6 @@
-// "Add a recipe" form: an optional free-text quick fill (LLM), then title,
-// photo, phases, tags, ingredients, instructions, prep time.
+// "Add a recipe" form: an optional quick fill (LLM: free text and/or photos
+// of a printed recipe), then title, photo, phases, tags, ingredients,
+// instructions, prep time.
 
 import { PHASES } from "../config.js";
 import { state } from "../state.js";
@@ -8,6 +9,9 @@ import { allTags } from "../lib/recipes.js";
 import { Backend } from "../backend/index.js";
 import { closeModal, renderModalInPlace } from "./modal.js";
 import { photoPicker } from "./photo-picker.js";
+import { SCAN_PHOTO } from "../lib/photos.js";
+
+var MAX_SCANS = 3;
 
 export function renderAddForm(m) {
   var wrap = el("div");
@@ -114,14 +118,16 @@ export function renderAddForm(m) {
   return wrap;
 }
 
-// Free text (typed, or dictated with the keyboard's microphone) -> the form
-// fields below, via Backend.structureRecipe(). It only fills the form; the
-// person checks it, picks the phases and saves as usual.
+// Free text (typed, or dictated with the keyboard's microphone) and/or
+// photos of a printed or handwritten recipe -> the form fields below, via
+// Backend.structureRecipe(). It only fills the form; the person checks it,
+// picks the phases and saves as usual. Scans are never saved — they are not
+// the recipe's photo.
 function renderQuickFill(m) {
   var box = el("div", { class: "quick-fill" }, [
     el("div", { class: "quick-fill-head" }, [
-      el("span", { class: "lbl", text: "Describe it in your own words" }),
-      el("span", { class: "hint", text: "Type or dictate with the microphone on your keyboard, in any language — it gets sorted into the form below, in English." })
+      el("span", { class: "lbl", text: "Describe it, or scan it" }),
+      el("span", { class: "hint", text: "Type or dictate with the microphone on your keyboard, or photograph a printed or handwritten recipe — any language. It gets sorted into the form below, in English." })
     ])
   ]);
 
@@ -132,6 +138,8 @@ function renderQuickFill(m) {
   area.value = m.freeText;
   area.addEventListener("input", function(e){ m.freeText = e.target.value; });
   box.appendChild(area);
+
+  box.appendChild(renderScans(m));
 
   if (m.fillError) box.appendChild(el("div", { class: "form-error", style: "margin:8px 0 0;", text: m.fillError }));
   if (m.filled && !m.fillError) box.appendChild(el("div", { class: "quick-fill-done", text: "Filled in below — check everything, then pick the phases yourself." }));
@@ -145,14 +153,38 @@ function renderQuickFill(m) {
   return box;
 }
 
+// Thumbnails of the scanned pages, each removable, plus the button to add
+// another (up to MAX_SCANS — a recipe spread over a few cookbook pages).
+function renderScans(m) {
+  var row = el("div", { class: "scan-row" });
+  m.scans.forEach(function(scan, i){
+    row.appendChild(el("div", { class: "scan-thumb" }, [
+      el("img", { attrs: { src: scan.preview, alt: "Recipe page " + (i + 1) } }),
+      el("button", { class: "scan-remove", attrs: { type: "button", "aria-label": "Remove page " + (i + 1) }, text: "✕", on: { click: function(){
+        URL.revokeObjectURL(scan.preview);
+        m.scans.splice(i, 1);
+        renderModalInPlace();
+      } } })
+    ]));
+  });
+  if (m.scans.length < MAX_SCANS) {
+    row.appendChild(photoPicker(m.scans.length ? "Add another page" : "Scan a recipe", function(blob){
+      m.scans.push({ blob: blob, preview: URL.createObjectURL(blob) });
+      m.fillError = "";
+      renderModalInPlace();
+    }, function(msg){ m.fillError = msg; renderModalInPlace(); }, SCAN_PHOTO));
+  }
+  return row;
+}
+
 export function quickFill(m) {
   var text = m.freeText.trim();
-  if (!text) { m.fillError = "Write or dictate the recipe first."; renderModalInPlace(); return; }
+  if (!text && !m.scans.length) { m.fillError = "Write, dictate or scan the recipe first."; renderModalInPlace(); return; }
   m.fillError = "";
   m.filling = true;
   renderModalInPlace();
 
-  Backend.structureRecipe(text, allTags()).then(function(res){
+  Backend.structureRecipe(text, allTags(), m.scans.map(function(s){ return s.blob; })).then(function(res){
     // Overwrite with whatever came back, but never blank out a field the
     // model had nothing for. Tags are added, never removed; phases stay.
     if (res.title) m.title = res.title;
@@ -168,6 +200,7 @@ export function quickFill(m) {
     var code = err && err.code;
     m.fillError = code === "rate" ? "The free quota for today is used up. Try again later, or fill in the form by hand."
       : code === "busy" ? "Gemini is overloaded right now. Try again in a minute."
+      : code === "large" ? "The photos are too large. Try fewer pages, or crop them closer to the recipe."
       : code === "missing" ? "Quick fill isn't set up yet: the structure-recipe function is missing in Supabase."
       : code === "denied" ? "Quick fill refused the request. Try signing out and in again."
       : "Couldn't sort this out right now. Fill in the form by hand, or try again in a moment.";
@@ -233,6 +266,7 @@ export function submitAddRecipe(m) {
     return Backend.addRecipe(data);
   }).then(function(){
     if (m.photoPreview) URL.revokeObjectURL(m.photoPreview);
+    m.scans.forEach(function(scan){ URL.revokeObjectURL(scan.preview); });
     closeModal();
   }).catch(function(){
     m.saving = false;

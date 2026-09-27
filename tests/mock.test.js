@@ -263,6 +263,12 @@ describe("MockBackend — quick fill", function () {
     expect(res.tags).toEqual([]);
   });
 
+  it("answers a photos-only request with a filled sample", async function () {
+    var res = await MockBackend.structureRecipe("", [], [new Blob(["x"], { type: "image/jpeg" })]);
+    expect(res.ingredients.length > 0).toBe(true);
+    expect(typeof res.instructions).toBe("string");
+  });
+
   it("only suggests tags from the list it was given", async function () {
     var res = await MockBackend.structureRecipe("Keto bowl, gluten-free\n- 2 eggs", ["Keto", "Gluten-free", "Low-fiber"]);
     expect(res.tags).toEqual(["Keto", "Gluten-free"]);

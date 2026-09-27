@@ -278,8 +278,19 @@ export const MockBackend = {
   // No LLM here: a crude line-based guess, so the quick-fill flow can be
   // tried without a Gemini key. Lines that start with an amount or a bullet
   // become ingredients, the first other line the title, the rest steps.
-  structureRecipe: function (text, tags) {
+  structureRecipe: function (text, tags, images) {
     if (FAIL === "llm") return failLater("mock llm failure");
+    // The mock can't read photos; with nothing but photos, answer with a
+    // fixed sample so the scan flow can still be clicked through.
+    if (!(text || "").trim() && images && images.length) {
+      return later({
+        title: "Scanned recipe (mock)",
+        ingredients: ["200 g white rice", "1 chicken breast", "1 L water"],
+        instructions: "1. Simmer the rice in the water for an hour.\n2. Poach the chicken in it for the last 20 minutes.",
+        prepMinutes: 70,
+        tags: []
+      });
+    }
     var lines = (text || "").split(/\n+/).map(function (l) { return l.trim(); }).filter(Boolean);
     var title = "";
     var ingredients = [];

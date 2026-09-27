@@ -5,12 +5,16 @@
 // createImageBitmap applies the EXIF orientation, so portrait phone photos
 // come out upright.
 
-var MAX_SIDE = 1600;
-var QUALITY = 0.82;
+// Dish photos for cards and the detail view.
+export var DISH_PHOTO = { maxSide: 1600, quality: 0.82 };
+// Photos of a printed or handwritten recipe for the LLM to read: larger and
+// sharper, so small print and handwriting stay legible.
+export var SCAN_PHOTO = { maxSide: 2400, quality: 0.88 };
 
-export async function resizePhoto(file) {
+export async function resizePhoto(file, opts) {
+  opts = opts || DISH_PHOTO;
   var bitmap = await createImageBitmap(file);
-  var scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+  var scale = Math.min(1, opts.maxSide / Math.max(bitmap.width, bitmap.height));
   var w = Math.round(bitmap.width * scale);
   var h = Math.round(bitmap.height * scale);
 
@@ -23,6 +27,17 @@ export async function resizePhoto(file) {
   return new Promise(function (resolve, reject) {
     canvas.toBlob(function (blob) {
       if (blob) resolve(blob); else reject(new Error("could not encode photo"));
-    }, "image/jpeg", QUALITY);
+    }, "image/jpeg", opts.quality);
+  });
+}
+
+// Base64 without the "data:...;base64," prefix — the form the LLM API
+// takes images in.
+export function blobToBase64(blob) {
+  return new Promise(function (resolve, reject) {
+    var reader = new FileReader();
+    reader.onload = function () { resolve(String(reader.result).split(",")[1] || ""); };
+    reader.onerror = function () { reject(reader.error); };
+    reader.readAsDataURL(blob);
   });
 }

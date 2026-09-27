@@ -196,6 +196,10 @@ The add-recipe form starts with a free-text box: people type the recipe the
 way they would tell it, or dictate it with their keyboard's microphone, and
 "Fill in the form" sorts it into title, ingredients, steps, time and tags —
 in English whatever language went in, since the recipe box is kept in English.
+They can also photograph a printed or handwritten recipe (up to three
+pages, `SCAN_PHOTO` size in `lib/photos.js` so the print stays legible),
+alone or together with text such as "half the amount". The scans go to the
+model as inline images and are never stored — they are not the dish photo.
 It only fills the draft — they review it and save as usual. Phases are left
 to the family on purpose.
 
