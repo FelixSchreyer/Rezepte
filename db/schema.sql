@@ -94,6 +94,7 @@ create table if not exists public.recipes (
   prep_minutes int,
   added_by uuid references auth.users(id) on delete set null,
   added_by_name text,
+  photo_path text,          -- object in the recipe-photos storage bucket
   created_at bigint not null
 );
 
@@ -106,6 +107,13 @@ create policy "recipes: read by approved members"
 create policy "recipes: insert by approved members, as themselves"
   on public.recipes for insert
   with check (public.is_approved() and added_by = auth.uid());
+
+-- Any approved member may add or replace a recipe's photo. The grants below
+-- limit updates to that one column; nothing else about a recipe can change.
+create policy "recipes: approved members set the photo"
+  on public.recipes for update
+  using (public.is_approved())
+  with check (public.is_approved());
 
 -- ---------- ratings ----------
 create table if not exists public.ratings (
@@ -145,10 +153,32 @@ grant usage on schema public to authenticated;
 grant select, insert on public.members to authenticated;
 grant update (name, role, last_phase) on public.members to authenticated;
 grant select, insert on public.recipes to authenticated;
+grant update (photo_path) on public.recipes to authenticated;
 grant select, insert, update on public.ratings to authenticated;
 
 revoke execute on function public.set_member_status(uuid, text) from public, anon;
 grant execute on function public.set_member_status(uuid, text) to authenticated;
+
+-- ---------- recipe photos (Supabase Storage) ----------
+-- A private bucket: photos are only reachable through short-lived signed
+-- URLs, which only approved members can create. Uploads go into a folder
+-- named after the uploader's user id. The app shrinks photos before upload;
+-- the 5 MB cap is a backstop.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('recipe-photos', 'recipe-photos', false, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do nothing;
+
+create policy "recipe photos: read by approved members"
+  on storage.objects for select to authenticated
+  using (bucket_id = 'recipe-photos' and public.is_approved());
+
+create policy "recipe photos: approved members upload into their own folder"
+  on storage.objects for insert to authenticated
+  with check (
+    bucket_id = 'recipe-photos'
+    and public.is_approved()
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
 
 -- ---------- realtime (so all devices see changes live) ----------
 alter publication supabase_realtime add table public.members;

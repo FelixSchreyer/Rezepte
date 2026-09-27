@@ -13,9 +13,12 @@ export var state = {
   auth: { mode: "signin", email: "", password: "", error: "", busy: false },
   members: {},           // uid -> {name, role}
   recipes: [],           // [{id, ...data}]
+  photoUrls: {},         // photoPath -> displayable URL (see boot.js)
+  photoUrlsAt: 0,        // when photoUrls was last filled from scratch
   ratings: [],           // [{id, recipeId, uid, name, stars, tolerance, comment}]
   activePhase: null,
   activeTags: {},        // tag -> true
+  tagMenuOpen: false,    // tag filter dropdown
   search: "",
   modal: null            // {type: 'onboarding'|'add'|'detail'|'account', ...}
 };

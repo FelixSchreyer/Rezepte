@@ -51,3 +51,14 @@
   color: var(--ink-soft);
 }
 .empty-state .big { font-family: var(--serif); font-size: 20px; color: var(--ink); margin-bottom: 6px; }
+
+/* Recipe photo: full-bleed across the top of the card. */
+.card { overflow: hidden; }
+.card .card-photo {
+  display: block;
+  width: calc(100% + 32px);
+  margin: -16px -16px 2px;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  background: var(--surface-sunk);
+}

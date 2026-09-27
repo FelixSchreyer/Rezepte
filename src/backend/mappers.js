@@ -28,6 +28,7 @@ export function mapRecipe(row) {
     prepMinutes: row.prep_minutes,
     addedBy: row.added_by,
     addedByName: row.added_by_name,
+    photoPath: row.photo_path || null,
     createdAt: row.created_at
   };
 }

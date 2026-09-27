@@ -1,10 +1,11 @@
-/* Phase dropdown, tag chips and the search field. */
+/* Phase dropdown, tag filter dropdown and the search field. */
 
 .phase-row {
   display: flex; align-items: center; gap: 10px; margin-top: 16px;
 }
 .phase-row .lbl-inline {
   font-size: 13px; font-weight: 600; color: var(--ink-soft); flex: none;
+  min-width: 42px; /* "Phase" and "Filter" line their dropdowns up */
 }
 .phase-dropdown {
   display: flex; align-items: center; gap: 9px;
@@ -39,23 +40,62 @@
   outline: 2px solid var(--accent); outline-offset: 2px;
 }
 
-.filters-row {
-  display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; align-items: center;
+/* Tag filter: a button styled like the phase dropdown that opens a
+   checklist popover underneath it. */
+.phase-row + .phase-row { margin-top: 10px; }
+.tag-filter {
+  position: relative;
+  flex: 1 1 auto;
+  max-width: 320px;
 }
-.tag-chip {
-  border: 1px solid var(--line);
-  background: var(--surface);
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-size: 13px;
+.tag-dropdown {
+  width: 100%; max-width: none;
+  padding: 10px 12px;
+  gap: 8px;
+  color: var(--ink);
+  font: inherit; font-size: 14.5px; font-weight: 600;
+  text-align: left;
   cursor: pointer;
-  color: var(--ink-soft);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path d='M5 8l5 5 5-5' fill='none' stroke='%235B6455' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 16px;
+  padding-right: 32px;
 }
-.tag-chip[data-active="true"] {
-  background: var(--ink); color: var(--bg); border-color: var(--ink);
+.tag-dropdown:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tag-dropdown-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.tag-dropdown-count:empty { display: none; }
+.tag-dropdown-count {
+  flex: none;
+  min-width: 20px; height: 20px; padding: 0 6px;
+  border-radius: 999px;
+  background: var(--ink); color: var(--bg);
+  font-size: 11.5px; font-weight: 700; line-height: 20px; text-align: center;
 }
-:root[data-theme="dark"] .tag-chip[data-active="true"],
-@media (prefers-color-scheme: dark) { }
+.tag-menu {
+  position: absolute; left: 0; right: 0; top: calc(100% + 6px);
+  z-index: 15;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  padding: 6px;
+  max-height: 60vh; overflow-y: auto;
+}
+.tag-option {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: 14.5px;
+  cursor: pointer;
+}
+.tag-option:hover { background: var(--surface-sunk); }
+.tag-option input { accent-color: var(--accent); width: 17px; height: 17px; margin: 0; }
+.tag-menu-actions {
+  display: flex; justify-content: flex-end; gap: 6px;
+  border-top: 1px solid var(--line);
+  margin-top: 6px; padding: 8px 4px 2px;
+}
 
 .search-wrap { margin-top: 12px; }
 .search-wrap input {

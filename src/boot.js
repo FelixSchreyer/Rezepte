@@ -36,6 +36,7 @@ export function syncSubscriptions() {
     unsubscribers.push(Backend.onRecipes(function (recipes) {
       state.recipes = recipes;
       render();
+      loadPhotoUrls();
     }));
     unsubscribers.push(Backend.onRatings(function (ratings) {
       state.ratings = ratings;
@@ -43,6 +44,34 @@ export function syncSubscriptions() {
     }));
   }
 }
+
+// Photos live in a private bucket, so each one needs a signed URL that
+// expires after about a day. Fetch URLs for photos we have none for yet, and
+// start over once the batch we hold is getting old (an app left open
+// overnight, then woken up).
+var PHOTO_URL_MAX_AGE = 20 * 60 * 60 * 1000;
+
+export async function loadPhotoUrls() {
+  if (Date.now() - state.photoUrlsAt > PHOTO_URL_MAX_AGE) {
+    state.photoUrls = {};
+    state.photoUrlsAt = Date.now();
+  }
+  var missing = state.recipes
+    .map(function (r) { return r.photoPath; })
+    .filter(function (p) { return p && !state.photoUrls[p]; });
+  if (!missing.length) return;
+  try {
+    var urls = await Backend.photoUrls(missing);
+    Object.keys(urls).forEach(function (p) { state.photoUrls[p] = urls[p]; });
+    render();
+  } catch (e) {
+    // Photos stay hidden; the next recipes update tries again.
+  }
+}
+
+document.addEventListener("visibilitychange", function () {
+  if (document.visibilityState === "visible" && state.uid && state.recipes.length) loadPhotoUrls();
+});
 
 function clearSubscriptions() {
   unsubscribers.forEach(function (off) { off(); });
@@ -70,6 +99,8 @@ export async function signOut() {
   state.members = {};
   state.recipes = [];
   state.ratings = [];
+  state.photoUrls = {};
+  state.photoUrlsAt = 0;
   state.activePhase = null;
   state.activeTags = {};
   state.search = "";

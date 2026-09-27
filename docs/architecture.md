@@ -57,6 +57,10 @@ fetchProfile(uid)                  -> Promise<Object | null>
 createProfile(uid, profile)        -> Promise<void>   (new pending member)
 saveProfile(uid, profile)          -> Promise<void>   (name + role only)
 setMemberStatus(uid, status)       -> Promise<void>   (admins only)
+uploadPhoto(uid, blob)             -> Promise<path>
+photoUrls(paths)                   -> Promise<{ path: url }>
+setRecipePhoto(recipeId, path)     -> Promise<void>
+structureRecipe(text, tags)        -> Promise<{ title, ingredients, instructions, prepMinutes, tags }>
 onMembers | onRecipes | onRatings  -> unsubscribe();  cb(Array)
 addRecipe(data)                    -> Promise<void>
 upsertRating(recipeId, uid, data)  -> Promise<void>
@@ -165,6 +169,41 @@ and `render()` swaps in the app.
 admin. Only `patient` sees the rating form — the app states this in a banner
 rather than hiding it silently. This is a UI convention, not a security
 boundary: the RLS policies let any approved member insert their own rating.
+
+## Photos
+
+A recipe has at most one photo. The browser shrinks it first
+(`lib/photos.js`: longest side 1600px, JPEG) and uploads it to the private
+`recipe-photos` bucket in Supabase Storage, into a folder named after the
+uploader — the storage policy insists on that. `recipes.photo_path` stores
+where it went. Any approved member can add or replace a photo later from the
+detail view; `photo_path` is the only column of a saved recipe anyone may
+update.
+
+Because the bucket is private, an `<img>` needs a signed URL. `boot.js`
+(`loadPhotoUrls()`) asks for URLs for any photo it has none for whenever the
+recipes change, keeps them in `state.photoUrls`, and starts over once they
+are close to their 24h expiry — checked again when the app comes back to the
+foreground. The mock keeps photos as data URLs inside its localStorage entry,
+which holds only a handful.
+
+A replaced photo's old file stays in the bucket; nothing deletes storage
+objects yet.
+
+## Quick fill (LLM)
+
+The add-recipe form starts with a free-text box: people type the recipe the
+way they would tell it, or dictate it with their keyboard's microphone, and
+"Fill in the form" sorts it into title, ingredients, steps, time and tags.
+It only fills the draft — they review it and save as usual. Phases are left
+to the family on purpose.
+
+The model is Google Gemini, called from the `structure-recipe` Supabase Edge
+Function (`supabase/functions/`), because the API key must stay off the
+client. The function refuses anyone who is not an approved member, caps the
+input size, asks Gemini for JSON against a schema, and re-validates what
+comes back (tags only from the list the app sent). The mock answers with a
+crude line-based guess so the flow works without a key.
 
 ## The account panel
 

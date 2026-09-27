@@ -16,6 +16,7 @@
 //   ?mock&latency=800     slow every call down, to see the loading states
 //   ?mock&fail=connect    force the "Couldn't connect" screen
 //   ?mock&fail=auth       make every sign-in and sign-up fail
+//   ?mock&fail=llm        make "Fill in the form" fail
 //
 // Row-level security is NOT emulated: a pending member could read recipes
 // here if the app asked. The one server-side rule the mock does enforce is
@@ -70,8 +71,11 @@ function read() {
 function write(db) {
   try {
     window.localStorage.setItem(STORE_KEY, JSON.stringify(db));
+    return true;
   } catch (e) {
-    // Nothing to do: the in-memory copy stays correct for this tab.
+    // Quota exceeded or storage disabled. Callers that can fail meaningfully
+    // (photo uploads) check the return value; the rest carry on.
+    return false;
   }
 }
 
@@ -237,8 +241,74 @@ export const MockBackend = {
       prepMinutes: data.prepMinutes,
       addedBy: data.addedBy,
       addedByName: data.addedByName,
+      photoPath: data.photoPath || null,
       createdAt: data.createdAt
     });
+    write(db);
+    emit("recipes");
+    return later();
+  },
+
+  // Photos are kept as data URLs inside the same localStorage entry, so a
+  // handful fit before the browser's ~5 MB quota runs out. Good enough for
+  // trying the feature; write() failing past that is caught below.
+  uploadPhoto: function (uid, blob) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () { resolve(reader.result); };
+      reader.onerror = function () { reject(reader.error); };
+      reader.readAsDataURL(blob);
+    }).then(function (dataUrl) {
+      var db = read();
+      var path = uid + "/" + uuid() + ".jpg";
+      db.photos = db.photos || {};
+      db.photos[path] = dataUrl;
+      if (!write(db)) throw new Error("mock storage is full");
+      return later(path);
+    });
+  },
+
+  photoUrls: function (paths) {
+    var photos = read().photos || {};
+    var out = {};
+    paths.forEach(function (p) { if (photos[p]) out[p] = photos[p]; });
+    return later(out);
+  },
+
+  // No LLM here: a crude line-based guess, so the quick-fill flow can be
+  // tried without a Gemini key. Lines that start with an amount or a bullet
+  // become ingredients, the first other line the title, the rest steps.
+  structureRecipe: function (text, tags) {
+    if (FAIL === "llm") return failLater("mock llm failure");
+    var lines = (text || "").split(/\n+/).map(function (l) { return l.trim(); }).filter(Boolean);
+    var title = "";
+    var ingredients = [];
+    var steps = [];
+    lines.forEach(function (l) {
+      if (/^([-•*]|\d+\s*(g|kg|ml|l|el|tl|tbsp|tsp|cup|stück|x)?\b)/i.test(l) && !/^\d+\./.test(l)) {
+        ingredients.push(l.replace(/^[-•*]\s*/, ""));
+      } else if (!title) {
+        title = l;
+      } else {
+        steps.push(l);
+      }
+    });
+    var minutes = /(\d+)\s*(min|minuten|minutes)\b/i.exec(text || "");
+    var lower = (text || "").toLowerCase();
+    return later({
+      title: title,
+      ingredients: ingredients,
+      instructions: steps.map(function (s, i) { return (i + 1) + ". " + s.replace(/^\d+\.\s*/, ""); }).join("\n"),
+      prepMinutes: minutes ? Number(minutes[1]) : null,
+      tags: (tags || []).filter(function (t) { return lower.indexOf(t.toLowerCase()) !== -1; })
+    });
+  },
+
+  setRecipePhoto: function (recipeId, path) {
+    var db = read();
+    var recipe = db.recipes.filter(function (r) { return r.id === recipeId; })[0];
+    if (!recipe) return failLater("no such recipe");
+    recipe.photoPath = path;
     write(db);
     emit("recipes");
     return later();

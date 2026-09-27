@@ -27,6 +27,11 @@ import { mapMember, mapRecipe, mapRating } from "./mappers.js";
  *   onRecipes(cb)                -> unsubscribe();  cb(Array<{id, ...}>)
  *   onRatings(cb)                -> unsubscribe();  cb(Array<{id, ...}>)
  *   addRecipe(data)              -> Promise<void>
+ *   uploadPhoto(uid, blob)       -> Promise<path>   (a JPEG, already resized)
+ *   photoUrls(paths)             -> Promise<{ path: url }>  (valid ~24h)
+ *   setRecipePhoto(recipeId, path) -> Promise<void>
+ *   structureRecipe(text, tags)  -> Promise<{ title, ingredients, instructions, prepMinutes, tags }>
+ *                                   (rejects with .code "rate" when the LLM quota is used up)
  *   upsertRating(recipeId, uid, data) -> Promise<void>
  *   fetchFilterState(uid)        -> Promise<Object | null>
  *   saveFilterState(uid, data)   -> Promise<void>
@@ -49,6 +54,8 @@ import { mapMember, mapRecipe, mapRating } from "./mappers.js";
  */
 export const Backend = (function () {
   var sb = null;
+  var PHOTO_BUCKET = "recipe-photos";
+  var PHOTO_URL_SECONDS = 60 * 60 * 24;
 
   function check(res) {
     if (res && res.error) throw res.error;
@@ -179,8 +186,44 @@ export const Backend = (function () {
         prep_minutes: data.prepMinutes,
         added_by: data.addedBy,
         added_by_name: data.addedByName,
+        photo_path: data.photoPath || null,
         created_at: data.createdAt
       }));
+    },
+
+    // The folder must be the uploader's own id — the storage policy in
+    // db/schema.sql rejects anything else.
+    uploadPhoto: async function (uid, blob) {
+      var id = (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : String(Date.now());
+      var path = uid + "/" + id + ".jpg";
+      check(await sb.storage.from(PHOTO_BUCKET).upload(path, blob, { contentType: "image/jpeg", upsert: false }));
+      return path;
+    },
+
+    // The bucket is private, so photos are shown through signed URLs.
+    photoUrls: async function (paths) {
+      if (!paths.length) return {};
+      var res = check(await sb.storage.from(PHOTO_BUCKET).createSignedUrls(paths, PHOTO_URL_SECONDS));
+      var out = {};
+      (res.data || []).forEach(function (d) { if (d.signedUrl && !d.error) out[d.path] = d.signedUrl; });
+      return out;
+    },
+
+    setRecipePhoto: async function (recipeId, path) {
+      check(await sb.from("recipes").update({ photo_path: path }).eq("id", recipeId));
+    },
+
+    // Free text -> form fields, via the structure-recipe Edge Function
+    // (supabase/functions/structure-recipe), which holds the Gemini key.
+    structureRecipe: async function (text, tags) {
+      var res = await sb.functions.invoke("structure-recipe", { body: { text: text, tags: tags } });
+      if (res.error) {
+        var status = res.error.context && res.error.context.status;
+        var err = new Error(res.error.message || "structure-recipe failed");
+        err.code = status === 429 ? "rate" : "failed";
+        throw err;
+      }
+      return res.data;
     },
 
     upsertRating: async function (recipeId, uid, data) {

@@ -39,6 +39,7 @@ describe("mapRecipe", function () {
     prep_minutes: 90,
     added_by: "u1",
     added_by_name: "Sam",
+    photo_path: "u1/p.jpg",
     created_at: 1700000000000
   };
 
@@ -53,8 +54,13 @@ describe("mapRecipe", function () {
       prepMinutes: 90,
       addedBy: "u1",
       addedByName: "Sam",
+      photoPath: "u1/p.jpg",
       createdAt: 1700000000000
     });
+  });
+
+  it("turns a missing photo into null", function () {
+    expect(mapRecipe({ id: "r2" }).photoPath).toBeNull();
   });
 
   it("substitutes an empty array for null phases", function () {

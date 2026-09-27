@@ -22,6 +22,8 @@ function setState(patch) {
   state.ratings = [];
   state.activePhase = null;
   state.activeTags = {};
+  state.tagMenuOpen = false;
+  state.photoUrls = {};
   state.search = "";
   state.modal = null;
   Object.keys(patch || {}).forEach(function (k) { state[k] = patch[k]; });
@@ -96,6 +98,55 @@ describe("render — the recipe grid", function () {
     expect(root.querySelectorAll("header.top")).toHaveLength(1);
     expect(root.querySelectorAll(".phase-dropdown select")).toHaveLength(1);
     expect(root.querySelectorAll(".search-wrap input")).toHaveLength(1);
+  });
+});
+
+describe("render — filters and photos", function () {
+  it("stacks phase, tag filter, search and grid in that order", function () {
+    setState({ recipes: SEED_RECIPES });
+    render();
+    var app = root.querySelector(".app");
+    var order = Array.from(app.children).map(function (n) { return n.className.split(" ")[0]; });
+    expect(order).toEqual(["top", "phase-row", "phase-row", "search-wrap", "grid"]);
+    expect(app.children[2].querySelectorAll(".tag-dropdown")).toHaveLength(1);
+  });
+
+  it("keeps the tag checklist closed until opened", function () {
+    setState({ recipes: SEED_RECIPES });
+    render();
+    expect(root.querySelectorAll(".tag-menu")).toHaveLength(0);
+  });
+
+  it("lists every tag as a checkbox when open, ticking the active ones", function () {
+    setState({ recipes: SEED_RECIPES, tagMenuOpen: true, activeTags: { "Keto": true } });
+    render();
+    var boxes = root.querySelectorAll(".tag-menu input[type=checkbox]");
+    expect(boxes.length > 0).toBe(true);
+    var keto = Array.from(root.querySelectorAll(".tag-option")).filter(function (l) { return l.textContent === "Keto"; })[0];
+    expect(keto.querySelector("input").checked).toBe(true);
+  });
+
+  it("names the active tag on the closed dropdown", function () {
+    setState({ recipes: SEED_RECIPES, activeTags: { "Keto": true } });
+    render();
+    expect(root.querySelector(".tag-dropdown-label").textContent).toBe("Keto");
+  });
+
+  it("shows a recipe's photo on its card once its URL is known", function () {
+    var withPhoto = SEED_RECIPES.map(function (r, i) {
+      var copy = JSON.parse(JSON.stringify(r));
+      if (i === 0) copy.photoPath = "u/p.jpg";
+      return copy;
+    });
+    setState({ recipes: withPhoto, photoUrls: { "u/p.jpg": "data:image/gif;base64,R0lGODlhAQABAAAAACw=" } });
+    render();
+    expect(root.querySelectorAll(".card .card-photo")).toHaveLength(1);
+  });
+
+  it("offers to add a photo in the detail view of a recipe without one", function () {
+    setState({ recipes: SEED_RECIPES, modal: { type: "detail", recipeId: "r-congee", ratingStars: 0, ratingTol: "", ratingComment: "" } });
+    render();
+    expect(root.querySelector(".detail-photo .photo-pick").textContent).toBe("Add a photo");
   });
 });
 
@@ -220,6 +271,13 @@ describe("render — modals", function () {
     setState({ recipes: SEED_RECIPES, modal: { type: "add", title: "", phases: {}, tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", error: "" } });
     render();
     expect(root.textContent).toContain("Add a recipe");
+  });
+
+  it("offers the free-text quick fill above the form", function () {
+    setState({ recipes: SEED_RECIPES, modal: { type: "add", title: "", phases: {}, tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", photoBlob: null, photoPreview: "", saving: false, error: "", freeText: "", filling: false, filled: false, fillError: "" } });
+    render();
+    expect(root.querySelectorAll(".quick-fill textarea")).toHaveLength(1);
+    expect(root.textContent).toContain("Fill in the form");
   });
 
   it("opens onboarding, without recursing, when the profile is missing", function () {

@@ -1,4 +1,5 @@
-// "Add a recipe" form: title, phases, tags, ingredients, instructions, prep time.
+// "Add a recipe" form: an optional free-text quick fill (LLM), then title,
+// photo, phases, tags, ingredients, instructions, prep time.
 
 import { PHASES } from "../config.js";
 import { state } from "../state.js";
@@ -6,6 +7,7 @@ import { el } from "../lib/dom.js";
 import { allTags } from "../lib/recipes.js";
 import { Backend } from "../backend/index.js";
 import { closeModal, renderModalInPlace } from "./modal.js";
+import { photoPicker } from "./photo-picker.js";
 
 export function renderAddForm(m) {
   var wrap = el("div");
@@ -14,12 +16,16 @@ export function renderAddForm(m) {
     el("button", { class: "close-x", attrs: { "aria-label": "Close" }, text: "✕", on: { click: closeModal } })
   ]));
 
+  wrap.appendChild(renderQuickFill(m));
+
   var titleField = el("label", { class: "field" }, [ el("span", { class: "lbl", text: "Title" }) ]);
   var titleInput = el("input", { attrs: { type: "text", placeholder: "e.g. Soft rice congee with poached chicken" } });
   titleInput.value = m.title;
   titleInput.addEventListener("input", function(e){ m.title = e.target.value; });
   titleField.appendChild(titleInput);
   wrap.appendChild(titleField);
+
+  wrap.appendChild(renderPhotoField(m));
 
   var phaseField = el("label", { class: "field" }, [ el("span", { class: "lbl" }, [document.createTextNode("Suited to phase "), el("span", { class: "hint", text: "— required, pick one or more" })]) ]);
   var phaseGrid = el("div", { class: "check-grid" });
@@ -99,8 +105,98 @@ export function renderAddForm(m) {
 
   if (m.error) wrap.appendChild(el("div", { class: "form-error", text: m.error }));
 
-  wrap.appendChild(el("button", { class: "btn btn-primary btn-block", attrs: { type: "button" }, text: "Save recipe", on: { click: function(){ submitAddRecipe(m); } } }));
+  wrap.appendChild(el("button", {
+    class: "btn btn-primary btn-block",
+    attrs: m.saving ? { type: "button", disabled: "" } : { type: "button" },
+    text: m.saving ? "Saving…" : "Save recipe",
+    on: { click: function(){ if (!m.saving) submitAddRecipe(m); } }
+  }));
   return wrap;
+}
+
+// Free text (typed, or dictated with the keyboard's microphone) -> the form
+// fields below, via Backend.structureRecipe(). It only fills the form; the
+// person checks it, picks the phases and saves as usual.
+function renderQuickFill(m) {
+  var box = el("div", { class: "quick-fill" }, [
+    el("div", { class: "quick-fill-head" }, [
+      el("span", { class: "lbl", text: "Describe it in your own words" }),
+      el("span", { class: "hint", text: "Type or dictate with the microphone on your keyboard — ingredients and steps get sorted into the form below." })
+    ])
+  ]);
+
+  var area = el("textarea", { attrs: {
+    placeholder: "e.g. Rice congee. 200 g rice, a chicken breast, a litre of water. Simmer the rice for an hour, poach the chicken in it for the last 20 minutes…",
+    "aria-label": "Recipe in your own words"
+  } });
+  area.value = m.freeText;
+  area.addEventListener("input", function(e){ m.freeText = e.target.value; });
+  box.appendChild(area);
+
+  if (m.fillError) box.appendChild(el("div", { class: "form-error", style: "margin:8px 0 0;", text: m.fillError }));
+  if (m.filled && !m.fillError) box.appendChild(el("div", { class: "quick-fill-done", text: "Filled in below — check everything, then pick the phases yourself." }));
+
+  box.appendChild(el("button", {
+    class: "btn btn-sm", style: "margin-top:10px;",
+    attrs: m.filling ? { type: "button", disabled: "" } : { type: "button" },
+    text: m.filling ? "Sorting it out…" : "Fill in the form",
+    on: { click: function(){ if (!m.filling) quickFill(m); } }
+  }));
+  return box;
+}
+
+export function quickFill(m) {
+  var text = m.freeText.trim();
+  if (!text) { m.fillError = "Write or dictate the recipe first."; renderModalInPlace(); return; }
+  m.fillError = "";
+  m.filling = true;
+  renderModalInPlace();
+
+  Backend.structureRecipe(text, allTags()).then(function(res){
+    // Overwrite with whatever came back, but never blank out a field the
+    // model had nothing for. Tags are added, never removed; phases stay.
+    if (res.title) m.title = res.title;
+    if (res.ingredients && res.ingredients.length) m.ingredients = res.ingredients.join("\n");
+    if (res.instructions) m.instructions = res.instructions;
+    if (res.prepMinutes) m.prepMinutes = String(res.prepMinutes);
+    (res.tags || []).forEach(function(t){ m.tags[t] = true; });
+    m.filling = false;
+    m.filled = true;
+    renderModalInPlace();
+  }).catch(function(err){
+    m.filling = false;
+    m.fillError = err && err.code === "rate"
+      ? "The free quota for today is used up. Try again later, or fill in the form by hand."
+      : "Couldn't sort this out right now. Fill in the form by hand, or try again in a moment.";
+    renderModalInPlace();
+  });
+}
+
+// The photo is held as a resized Blob on the draft and only uploaded when
+// the recipe is saved, so abandoning the form leaves nothing behind.
+function renderPhotoField(m) {
+  var field = el("div", { class: "field" }, [
+    el("span", { class: "lbl" }, [document.createTextNode("Photo "), el("span", { class: "hint", text: "— optional" })])
+  ]);
+  function setPhoto(blob) {
+    if (m.photoPreview) URL.revokeObjectURL(m.photoPreview);
+    m.photoBlob = blob;
+    m.photoPreview = blob ? URL.createObjectURL(blob) : "";
+    m.error = "";
+    renderModalInPlace();
+  }
+  function fail(msg) { m.error = msg; renderModalInPlace(); }
+
+  if (m.photoPreview) {
+    field.appendChild(el("img", { class: "photo-preview", attrs: { src: m.photoPreview, alt: "" } }));
+    field.appendChild(el("div", { class: "photo-actions" }, [
+      photoPicker("Change photo", setPhoto, fail),
+      el("button", { class: "btn btn-ghost btn-sm", attrs: { type: "button" }, text: "Remove", on: { click: function(){ setPhoto(null); } } })
+    ]));
+  } else {
+    field.appendChild(photoPicker("Add a photo", setPhoto, fail));
+  }
+  return field;
 }
 
 export function submitAddRecipe(m) {
@@ -115,6 +211,8 @@ export function submitAddRecipe(m) {
   if (!ingredients.length) { m.error = "List at least one ingredient."; renderModalInPlace(); return; }
 
   m.error = "";
+  m.saving = true;
+  renderModalInPlace();
   var data = {
     title: title,
     phases: phases,
@@ -126,9 +224,15 @@ export function submitAddRecipe(m) {
     addedByName: (state.myProfile && state.myProfile.name) || "Someone",
     createdAt: Date.now()
   };
-  Backend.addRecipe(data).then(function(){
+  var upload = m.photoBlob ? Backend.uploadPhoto(state.uid, m.photoBlob) : Promise.resolve(null);
+  upload.then(function(photoPath){
+    data.photoPath = photoPath;
+    return Backend.addRecipe(data);
+  }).then(function(){
+    if (m.photoPreview) URL.revokeObjectURL(m.photoPreview);
     closeModal();
   }).catch(function(){
+    m.saving = false;
     m.error = "Couldn't save — check your connection and try again.";
     renderModalInPlace();
   });

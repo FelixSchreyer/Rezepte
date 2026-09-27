@@ -88,17 +88,19 @@ src/
     dom.js          el() element builder, initials()
     recipes.js      Filtering, tag collection, rating maths, recipes to rate (pure)
     members.js      Approved / admin checks, member lists (pure)
+    photos.js       Shrinks a photo in the browser before upload
   ui/
     app.js          render() — rebuilds the view from `state`
     screens.js      Loading / connection-failed / waiting / no-access screens
     auth.js         Sign-in and create-account screen
     header.js       Sticky top bar
-    filters.js      Phase dropdown, tag chips, search
+    filters.js      Phase dropdown, tag filter dropdown, search
     grid.js         Recipe grid, cards, empty state
     modal.js        Overlay shell + which modal is open
     onboarding.js   Name + role form (first run, and "Your details")
     account.js      Account panel behind the avatar: menu + pages
     add-recipe.js   Add-a-recipe form
+    photo-picker.js "Add a photo" button (camera or library on phones)
     detail.js       Recipe detail + rating form
     notifications.js  Account page: recipes waiting for the patient's rating
     members.js      Account page (admins): let people in, decline, remove access
@@ -110,6 +112,7 @@ tests/
 db/
   schema.sql        Supabase schema. Run once in the SQL Editor.
   reset.sql         Deletes all tables, data and logins, before a fresh schema.sql
+  migrate-002-photos.sql  Adds recipe photos to a project set up before them
 docs/
   architecture.md   How the pieces fit together
 ```
@@ -144,6 +147,18 @@ row-level security and the `set_member_status()` function in
    recipes, ratings, members and logins**.
 4. **The first admin:** create your own account in the app, then run the snippet
    at the end of `schema.sql` with your email. Further admins the same way.
+
+### Quick fill with Gemini (optional)
+
+The "Describe it in your own words" box needs the `structure-recipe` Edge
+Function. Without it, everything else works and the box shows an error.
+
+1. Get a free API key at [aistudio.google.com](https://aistudio.google.com) → *Get API key*.
+2. Supabase → **Edge Functions → Deploy a new function → Via Editor**, name it
+   `structure-recipe`, paste [supabase/functions/structure-recipe/index.ts](supabase/functions/structure-recipe/index.ts), deploy.
+3. **Edge Functions → Secrets:** add `GEMINI_API_KEY` with the key.
+
+On Gemini's free tier Google may use the text to improve its models.
 
 "Forgot password" is not built in: it needs a mail provider (custom SMTP in
 Supabase). Until then an admin can set a new password for someone under

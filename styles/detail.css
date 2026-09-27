@@ -45,3 +45,15 @@
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
   padding: 14px 16px; font-size: 13.5px; color: var(--ink-soft); margin-top: 16px;
 }
+
+/* Recipe photo at the top of the detail panel, with its add/change button. */
+.detail-photo { margin-bottom: 16px; }
+.detail-photo img {
+  display: block; width: 100%;
+  max-height: 340px; object-fit: cover;
+  border-radius: var(--radius);
+  background: var(--surface-sunk);
+  margin-bottom: 10px;
+}
+.detail-photo .photo-loading,
+.detail-photo .photo-status { font-size: 13px; color: var(--ink-faint); margin-bottom: 8px; }

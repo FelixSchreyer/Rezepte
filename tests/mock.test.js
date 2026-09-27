@@ -214,6 +214,61 @@ describe("MockBackend — recipes", function () {
   });
 });
 
+describe("MockBackend — photos", function () {
+  beforeAll(reset);
+
+  function jpeg() { return new Blob(["not really a jpeg"], { type: "image/jpeg" }); }
+
+  it("stores an upload under the uploader's folder", async function () {
+    var path = await MockBackend.uploadPhoto(ALEX, jpeg());
+    expect(path.indexOf(ALEX + "/")).toBe(0);
+  });
+
+  it("returns a displayable URL for an uploaded path, and nothing for unknown ones", async function () {
+    var path = await MockBackend.uploadPhoto(ALEX, jpeg());
+    var urls = await MockBackend.photoUrls([path, "nobody/missing.jpg"]);
+    expect(urls[path].indexOf("data:image/jpeg")).toBe(0);
+    expect(urls["nobody/missing.jpg"]).toBe(undefined);
+  });
+
+  it("attaches a photo to an existing recipe", async function () {
+    var got = [];
+    var off = MockBackend.onRecipes(function (rows) { got = rows; });
+    var path = await MockBackend.uploadPhoto(ALEX, jpeg());
+    await MockBackend.setRecipePhoto("r-congee", path);
+    off();
+    expect(got.filter(function (r) { return r.id === "r-congee"; })[0].photoPath).toBe(path);
+  });
+
+  it("saves a photo path given with a new recipe", async function () {
+    var got = [];
+    var off = MockBackend.onRecipes(function (rows) { got = rows; });
+    await MockBackend.addRecipe({
+      title: "With photo", phases: ["remission"], tags: ["Keto"], ingredients: ["x"],
+      instructions: "", prepMinutes: null, addedBy: ALEX, addedByName: "Alex",
+      photoPath: ALEX + "/x.jpg", createdAt: 7
+    });
+    off();
+    expect(got.filter(function (r) { return r.title === "With photo"; })[0].photoPath).toBe(ALEX + "/x.jpg");
+  });
+});
+
+describe("MockBackend — quick fill", function () {
+  it("answers in the shape the Edge Function returns", async function () {
+    var res = await MockBackend.structureRecipe("Rice congee\n200 g rice\n1 chicken breast\nSimmer for 60 minutes.", ["Low-fiber"]);
+    expect(res.title).toBe("Rice congee");
+    expect(res.ingredients).toEqual(["200 g rice", "1 chicken breast"]);
+    expect(res.instructions).toBe("1. Simmer for 60 minutes.");
+    expect(res.prepMinutes).toBe(60);
+    expect(res.tags).toEqual([]);
+  });
+
+  it("only suggests tags from the list it was given", async function () {
+    var res = await MockBackend.structureRecipe("Keto bowl, gluten-free\n- 2 eggs", ["Keto", "Gluten-free", "Low-fiber"]);
+    expect(res.tags).toEqual(["Keto", "Gluten-free"]);
+  });
+});
+
 describe("MockBackend — ratings", function () {
   beforeAll(reset);
 

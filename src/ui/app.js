@@ -8,7 +8,7 @@ import { isApproved } from "../lib/members.js";
 import { renderCapsMissing, renderLoading, renderPending, renderRejected } from "./screens.js";
 import { renderAuth } from "./auth.js";
 import { renderHeader } from "./header.js";
-import { renderPhaseDropdown, renderFiltersRow, renderSearch } from "./filters.js";
+import { renderPhaseDropdown, renderTagFilter, renderSearch } from "./filters.js";
 import { renderGrid } from "./grid.js";
 import { renderModal } from "./modal.js";
 
@@ -34,7 +34,7 @@ export function render() {
   var app = el("div", { class: "app" });
   app.appendChild(renderHeader());
   app.appendChild(renderPhaseDropdown());
-  app.appendChild(renderFiltersRow());
+  app.appendChild(renderTagFilter());
   app.appendChild(renderSearch());
   app.appendChild(renderGrid());
   root.appendChild(app);

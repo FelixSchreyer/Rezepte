@@ -6,6 +6,7 @@ import { el } from "../lib/dom.js";
 import { ratingsFor, ratingSummary, starString } from "../lib/recipes.js";
 import { Backend } from "../backend/index.js";
 import { closeModal, renderModalInPlace } from "./modal.js";
+import { photoPicker } from "./photo-picker.js";
 
 export function renderDetail(m) {
   var r = state.recipes.find(function(x){ return x.id === m.recipeId; });
@@ -22,6 +23,8 @@ export function renderDetail(m) {
     el("h2", { text: r.title }),
     el("button", { class: "close-x", attrs: { "aria-label": "Close" }, text: "✕", on: { click: closeModal } })
   ]));
+
+  wrap.appendChild(renderDetailPhoto(m, r));
 
   var dots = el("div", { class: "detail-phase-dots" });
   (r.phases||[]).forEach(function(pid){
@@ -81,6 +84,37 @@ export function renderDetail(m) {
   }
 
   return wrap;
+}
+
+// Any approved member can add a photo to a recipe, or replace it — the one
+// thing about a saved recipe that can change (see db/schema.sql).
+function renderDetailPhoto(m, r) {
+  var box = el("div", { class: "detail-photo" });
+  var url = r.photoPath && state.photoUrls[r.photoPath];
+  if (url) box.appendChild(el("img", { attrs: { src: url, alt: "" } }));
+  else if (r.photoPath) box.appendChild(el("div", { class: "photo-loading", text: "Loading photo…" }));
+
+  if (m.photoBusy) {
+    box.appendChild(el("div", { class: "photo-status", text: "Uploading…" }));
+  } else {
+    box.appendChild(photoPicker(r.photoPath ? "Change photo" : "Add a photo", function(blob){
+      m.photoBusy = true;
+      m.photoError = "";
+      renderModalInPlace();
+      Backend.uploadPhoto(state.uid, blob).then(function(path){
+        return Backend.setRecipePhoto(r.id, path);
+      }).then(function(){
+        m.photoBusy = false;
+        renderModalInPlace();
+      }).catch(function(){
+        m.photoBusy = false;
+        m.photoError = "Couldn't upload the photo — check your connection and try again.";
+        renderModalInPlace();
+      });
+    }, function(msg){ m.photoError = msg; renderModalInPlace(); }));
+  }
+  if (m.photoError) box.appendChild(el("div", { class: "form-error", style: "margin:8px 0 0;", text: m.photoError }));
+  return box;
 }
 
 export function renderRatingForm(m, r) {

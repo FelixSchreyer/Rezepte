@@ -51,6 +51,9 @@ export function renderCard(r) {
     dots.appendChild(el("span", { style: "background:" + p.color, attrs: { title: p.label } }));
   });
 
+  var photoUrl = r.photoPath && state.photoUrls[r.photoPath];
+  if (photoUrl) card.appendChild(el("img", { class: "card-photo", attrs: { src: photoUrl, alt: "", loading: "lazy" } }));
+
   card.appendChild(dots);
   card.appendChild(el("h3", { text: r.title || "Untitled recipe" }));
   if ((r.tags||[]).length) {
