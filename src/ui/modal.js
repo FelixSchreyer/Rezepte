@@ -10,6 +10,7 @@ import { renderAddForm } from "./add-recipe.js";
 import { renderDetail } from "./detail.js";
 import { renderAccount } from "./account.js";
 import { renderShopping } from "./shopping.js";
+import { attachSwipeBack } from "./navigation.js";
 
 export function closeModal() { state.modal = null; render(); }
 
@@ -39,6 +40,7 @@ export function renderModal() {
   var centered = (m.type === "onboarding");
   var overlay = el("div", { class: "overlay show", attrs: { role: "dialog", "aria-modal": "true" }, on: { click: function(e){ if (e.target === overlay && m.type !== "onboarding") closeModal(); } } });
   var panel = el("div", { class: "panel" + (centered ? " center" : "") });
+  if (!centered) attachSwipeBack(panel);
   if (m.type === "onboarding") panel.appendChild(renderOnboardingForm(m));
   else if (m.type === "add") panel.appendChild(renderAddForm(m));
   else if (m.type === "detail") panel.appendChild(renderDetail(m));

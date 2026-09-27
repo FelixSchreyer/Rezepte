@@ -11,8 +11,14 @@ import { renderHeader } from "./header.js";
 import { renderPhaseDropdown, renderTagFilter, renderSearch } from "./filters.js";
 import { renderGrid } from "./grid.js";
 import { renderModal } from "./modal.js";
+import { syncHistory } from "./navigation.js";
 
 export function render() {
+  draw();
+  syncHistory();
+}
+
+function draw() {
   root.innerHTML = "";
   if (state.capsMissing) { root.appendChild(renderCapsMissing()); return; }
   if (!state.ready) { root.appendChild(renderLoading()); return; }

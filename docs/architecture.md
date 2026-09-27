@@ -34,6 +34,21 @@ caret position mid-typing:
 Modal draft state (a half-filled add-recipe form) lives on `state.modal`, so
 these in-place swaps preserve it.
 
+## Back navigation
+
+`ui/navigation.js` gives the panels a "back": an account sub-page steps up to
+the account menu, any other panel closes to the recipes. First-run
+onboarding has no back.
+
+Two ways reach it. `render()` ends with `syncHistory()`, which keeps one
+browser-history entry per level of depth, so Safari's edge swipe, Android's
+back button and the desktop back button step back through panels instead of
+leaving the app (a `popstate` calls `goBack()`). And every sliding panel
+listens for a swipe to the right, because the iOS home-screen web app has
+no back gesture of its own; in the browser the left 24px are left to
+Safari's gesture so the two don't both fire. History is only switched on
+from `main.js`, so the test page never touches it.
+
 ## The backend boundary
 
 Every module imports `Backend` from `backend/index.js`, which picks an

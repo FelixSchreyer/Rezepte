@@ -4,6 +4,8 @@
 
 import { render } from "./ui/app.js";
 import { init } from "./boot.js";
+import { enableHistory } from "./ui/navigation.js";
 
+enableHistory();
 render();
 init();

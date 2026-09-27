@@ -16,6 +16,7 @@ import { isAdmin, pendingMembers } from "../lib/members.js";
 import { signOut } from "../boot.js";
 import { render } from "./app.js";
 import { closeModal } from "./modal.js";
+import { goBack } from "./navigation.js";
 import { renderNotifications } from "./notifications.js";
 import { renderMembers } from "./members.js";
 import { renderProfileFields } from "./onboarding.js";
@@ -59,11 +60,7 @@ export function renderAccount(m) {
   var wrap = el("div");
   wrap.appendChild(el("div", { class: "panel-head" }, [
     el("div", { class: "panel-head-stack" }, [
-      el("button", { class: "back-btn", attrs: { type: "button" }, text: "‹ Back", on: { click: function(){
-        m.view = "menu";
-        m.error = "";
-        render();
-      } } }),
+      el("button", { class: "back-btn", attrs: { type: "button" }, text: "‹ Back", on: { click: goBack } }),
       el("h2", { text: page.title })
     ]),
     closeButton()

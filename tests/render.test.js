@@ -8,6 +8,7 @@
 import { describe, it, expect } from "./harness.js";
 import { state, root } from "../src/state.js";
 import { render } from "../src/ui/app.js";
+import { goBack } from "../src/ui/navigation.js";
 import { SEED_RECIPES } from "../src/backend/seed.js";
 
 function setState(patch) {
@@ -219,6 +220,40 @@ describe("render — shopping list", function () {
     setState({ recipes: SEED_RECIPES, modal: { type: "shopping", error: "", tidying: false, confirmClear: false } });
     render();
     expect(root.textContent).toContain("Nothing planned yet");
+  });
+});
+
+describe("back (swipe right / system back)", function () {
+  it("closes a recipe back to the list", function () {
+    setState({ recipes: SEED_RECIPES, modal: { type: "detail", recipeId: "r-congee", ratingStars: 0, ratingTol: "", ratingComment: "" } });
+    render();
+    goBack();
+    expect(state.modal).toBeNull();
+    expect(root.querySelectorAll(".overlay")).toHaveLength(0);
+  });
+
+  it("goes from an account sub-page to the account menu first", function () {
+    setState({ modal: { type: "account", view: "details", name: "Alex Moreau", role: "patient", error: "" } });
+    render();
+    goBack();
+    expect(state.modal.view).toBe("menu");
+    goBack();
+    expect(state.modal).toBeNull();
+  });
+
+  it("does nothing on the first-run onboarding, which can't be left", function () {
+    setState({ myProfile: null });
+    render();
+    goBack();
+    expect(state.modal.type).toBe("onboarding");
+  });
+
+  it("does nothing on the recipe list", function () {
+    setState({ recipes: SEED_RECIPES });
+    render();
+    goBack();
+    expect(state.modal).toBeNull();
+    expect(root.querySelectorAll(".card").length > 0).toBe(true);
   });
 });
 
