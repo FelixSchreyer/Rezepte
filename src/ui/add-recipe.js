@@ -121,7 +121,7 @@ function renderQuickFill(m) {
   var box = el("div", { class: "quick-fill" }, [
     el("div", { class: "quick-fill-head" }, [
       el("span", { class: "lbl", text: "Describe it in your own words" }),
-      el("span", { class: "hint", text: "Type or dictate with the microphone on your keyboard — ingredients and steps get sorted into the form below." })
+      el("span", { class: "hint", text: "Type or dictate with the microphone on your keyboard, in any language — it gets sorted into the form below, in English." })
     ])
   ]);
 

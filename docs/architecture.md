@@ -194,7 +194,8 @@ objects yet.
 
 The add-recipe form starts with a free-text box: people type the recipe the
 way they would tell it, or dictate it with their keyboard's microphone, and
-"Fill in the form" sorts it into title, ingredients, steps, time and tags.
+"Fill in the form" sorts it into title, ingredients, steps, time and tags —
+in English whatever language went in, since the recipe box is kept in English.
 It only fills the draft — they review it and save as usual. Phases are left
 to the family on purpose.
 
