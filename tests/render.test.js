@@ -283,6 +283,16 @@ describe("render — modals", function () {
     expect(camera.textContent).toBe("");
   });
 
+  it("puts \"Add a photo\" last, right before saving, styled as a field", function () {
+    setState({ recipes: SEED_RECIPES, modal: { type: "add", title: "", phases: {}, tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", photoBlob: null, photoPreview: "", saving: false, error: "", freeText: "", scans: [], filling: false, filled: false, fillError: "" } });
+    render();
+    var save = Array.from(root.querySelectorAll(".overlay button")).filter(function (b) { return b.textContent === "Save recipe"; })[0];
+    var before = save.previousElementSibling;
+    expect(before.querySelector(".photo-pick-field").textContent).toBe("Add a photo");
+    expect(before.querySelectorAll(".photo-pick-field .photo-pick-glyph svg")).toHaveLength(1);
+    expect(before.querySelectorAll(".lbl")).toHaveLength(0);
+  });
+
   it("shows scanned pages as thumbnails and stops offering more after three", function () {
     var page = { blob: null, preview: "data:image/gif;base64,R0lGODlhAQABAAAAACw=" };
     setState({ recipes: SEED_RECIPES, modal: { type: "add", title: "", phases: {}, tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", photoBlob: null, photoPreview: "", saving: false, error: "", freeText: "", scans: [page, page, page], filling: false, filled: false, fillError: "" } });

@@ -1,10 +1,10 @@
 /* Form fields, inputs, check pills and inline errors. */
 
-label.field { display: block; margin-bottom: 16px; }
-label.field .lbl {
+.field { display: block; margin-bottom: 16px; }
+.field .lbl {
   display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--ink);
 }
-label.field .hint { font-weight: 400; color: var(--ink-faint); font-size: 12px; }
+.field .hint { font-weight: 400; color: var(--ink-faint); font-size: 12px; }
 input[type=text], input[type=email], input[type=password], input[type=number], textarea, select {
   width: 100%;
   padding: 10px 12px;
@@ -99,3 +99,19 @@ textarea { resize: vertical; min-height: 84px; line-height: 1.4; }
   border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft);
   font-size: 11px; line-height: 1; cursor: pointer; padding: 0;
 }
+
+/* "Add a photo" in the add-recipe form: looks like the text inputs around
+   it, with the camera on the right like in the quick-fill box. */
+.photo-pick-field {
+  width: 100%;
+  justify-content: space-between; gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-faint);
+  font-size: 15px;
+}
+.photo-pick-field:hover { border-color: var(--ink-faint); color: var(--ink-soft); }
+.photo-pick-glyph { display: flex; flex: none; }
+@media (max-width: 520px) { .photo-pick-field { font-size: 16px; } }

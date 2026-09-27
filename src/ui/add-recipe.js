@@ -1,6 +1,6 @@
 // "Add a recipe" form: an optional quick fill (LLM: free text and/or photos
-// of a printed recipe), then title, photo, phases, tags, ingredients,
-// instructions, prep time.
+// of a printed recipe), then title, phases, tags, ingredients, instructions,
+// prep time and, last, a photo of the dish.
 
 import { PHASES } from "../config.js";
 import { state } from "../state.js";
@@ -30,8 +30,6 @@ export function renderAddForm(m) {
   titleInput.addEventListener("input", function(e){ m.title = e.target.value; });
   titleField.appendChild(titleInput);
   wrap.appendChild(titleField);
-
-  wrap.appendChild(renderPhotoField(m));
 
   var phaseField = el("label", { class: "field" }, [ el("span", { class: "lbl" }, [document.createTextNode("Suited to phase "), el("span", { class: "hint", text: "— required, pick one or more" })]) ]);
   var phaseGrid = el("div", { class: "check-grid" });
@@ -109,6 +107,8 @@ export function renderAddForm(m) {
   prepField.appendChild(prepInput);
   wrap.appendChild(prepField);
 
+  wrap.appendChild(renderPhotoField(m));
+
   if (m.error) wrap.appendChild(el("div", { class: "form-error", text: m.error }));
 
   wrap.appendChild(el("button", {
@@ -147,7 +147,7 @@ function renderQuickFill(m) {
       m.scans.push({ blob: blob, preview: URL.createObjectURL(blob) });
       m.fillError = "";
       renderModalInPlace();
-    }, function(msg){ m.fillError = msg; renderModalInPlace(); }, SCAN_PHOTO, CAMERA_SVG));
+    }, function(msg){ m.fillError = msg; renderModalInPlace(); }, { size: SCAN_PHOTO, icon: CAMERA_SVG }));
   }
   box.appendChild(field);
 
@@ -215,10 +215,10 @@ export function quickFill(m) {
 
 // The photo is held as a resized Blob on the draft and only uploaded when
 // the recipe is saved, so abandoning the form leaves nothing behind.
+// No heading: the "Add a photo" box, styled like the text fields around it,
+// says enough on its own.
 function renderPhotoField(m) {
-  var field = el("div", { class: "field" }, [
-    el("span", { class: "lbl" }, [document.createTextNode("Photo "), el("span", { class: "hint", text: "— optional" })])
-  ]);
+  var field = el("div", { class: "field" });
   function setPhoto(blob) {
     if (m.photoPreview) URL.revokeObjectURL(m.photoPreview);
     m.photoBlob = blob;
@@ -229,13 +229,13 @@ function renderPhotoField(m) {
   function fail(msg) { m.error = msg; renderModalInPlace(); }
 
   if (m.photoPreview) {
-    field.appendChild(el("img", { class: "photo-preview", attrs: { src: m.photoPreview, alt: "" } }));
+    field.appendChild(el("img", { class: "photo-preview", attrs: { src: m.photoPreview, alt: "Photo of the dish" } }));
     field.appendChild(el("div", { class: "photo-actions" }, [
       photoPicker("Change photo", setPhoto, fail),
       el("button", { class: "btn btn-ghost btn-sm", attrs: { type: "button" }, text: "Remove", on: { click: function(){ setPhoto(null); } } })
     ]));
   } else {
-    field.appendChild(photoPicker("Add a photo", setPhoto, fail));
+    field.appendChild(photoPicker("Add a photo", setPhoto, fail, { look: "field", icon: CAMERA_SVG }));
   }
   return field;
 }
