@@ -92,6 +92,7 @@ create table if not exists public.recipes (
   ingredients text[] not null,
   instructions text default '',
   prep_minutes int,
+  servings int not null default 2 check (servings between 1 and 50),
   added_by uuid references auth.users(id) on delete set null,
   added_by_name text,
   photo_path text,          -- object in the recipe-photos storage bucket
@@ -142,12 +143,33 @@ create policy "ratings: update own rating, approved members only"
   on public.ratings for update
   using (public.is_approved() and uid = auth.uid());
 
+-- ---------- shopping list (one, shared by the family) ----------
+-- Which recipes are planned, and for how many people. The ingredients are
+-- worked out in the app from the recipes, so nothing here goes stale.
+create table if not exists public.shopping_items (
+  recipe_id uuid primary key references public.recipes(id) on delete cascade,
+  people int not null default 2 check (people between 1 and 50),
+  added_by uuid references auth.users(id) on delete set null,
+  added_at bigint not null
+);
+
+alter table public.shopping_items enable row level security;
+
+create policy "shopping: approved members read"
+  on public.shopping_items for select using (public.is_approved());
+create policy "shopping: approved members add"
+  on public.shopping_items for insert with check (public.is_approved());
+create policy "shopping: approved members change"
+  on public.shopping_items for update using (public.is_approved()) with check (public.is_approved());
+create policy "shopping: approved members remove"
+  on public.shopping_items for delete using (public.is_approved());
+
 -- ---------- table privileges ----------
 -- RLS policies above decide *which rows*; these grants decide whether a role
 -- may touch a table or column at all. Some Supabase projects grant everything
 -- to anon/authenticated by default, others nothing — so start from nothing
 -- and grant exactly what the app needs. `anon` (not signed in) gets nothing.
-revoke all on public.members, public.recipes, public.ratings from anon, authenticated;
+revoke all on public.members, public.recipes, public.ratings, public.shopping_items from anon, authenticated;
 
 grant usage on schema public to authenticated;
 grant select, insert on public.members to authenticated;
@@ -155,6 +177,7 @@ grant update (name, role, last_phase) on public.members to authenticated;
 grant select, insert on public.recipes to authenticated;
 grant update (photo_path) on public.recipes to authenticated;
 grant select, insert, update on public.ratings to authenticated;
+grant select, insert, update, delete on public.shopping_items to authenticated;
 
 revoke execute on function public.set_member_status(uuid, text) from public, anon;
 grant execute on function public.set_member_status(uuid, text) to authenticated;
@@ -184,6 +207,7 @@ create policy "recipe photos: approved members upload into their own folder"
 alter publication supabase_realtime add table public.members;
 alter publication supabase_realtime add table public.recipes;
 alter publication supabase_realtime add table public.ratings;
+alter publication supabase_realtime add table public.shopping_items;
 
 -- ---------- the first admin ----------
 -- Register in the app first, then run this once with your own email.

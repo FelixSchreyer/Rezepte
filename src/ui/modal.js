@@ -9,17 +9,23 @@ import { renderOnboardingForm } from "./onboarding.js";
 import { renderAddForm } from "./add-recipe.js";
 import { renderDetail } from "./detail.js";
 import { renderAccount } from "./account.js";
+import { renderShopping } from "./shopping.js";
 
 export function closeModal() { state.modal = null; render(); }
 
 export function openAddRecipe() {
-  state.modal = { type: "add", title: "", phases: {}, tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", photoBlob: null, photoPreview: "", saving: false, error: "", freeText: "", scans: [], filling: false, filled: false, fillError: "" };
+  state.modal = { type: "add", title: "", phases: {}, tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", servings: "2", photoBlob: null, photoPreview: "", saving: false, error: "", freeText: "", scans: [], filling: false, filled: false, fillError: "" };
   render();
 }
 export function openDetail(recipeId) {
   state.modal = { type: "detail", recipeId: recipeId, ratingStars: 0, ratingTol: "", ratingComment: "" };
   render();
 }
+export function openShopping() {
+  state.modal = { type: "shopping", error: "", tidying: false, confirmClear: false };
+  render();
+}
+
 // The account panel: a menu plus the pages it drills into — "menu",
 // "ratings", "members" or "details". name/role are the details form's draft.
 export function openAccount(view) {
@@ -37,6 +43,7 @@ export function renderModal() {
   else if (m.type === "add") panel.appendChild(renderAddForm(m));
   else if (m.type === "detail") panel.appendChild(renderDetail(m));
   else if (m.type === "account") panel.appendChild(renderAccount(m));
+  else if (m.type === "shopping") panel.appendChild(renderShopping(m));
   overlay.appendChild(panel);
   return overlay;
 }

@@ -42,6 +42,10 @@ export function syncSubscriptions() {
       state.ratings = ratings;
       render();
     }));
+    unsubscribers.push(Backend.onShopping(function (items) {
+      state.shopping = items;
+      render();
+    }));
   }
 }
 
@@ -99,6 +103,8 @@ export async function signOut() {
   state.members = {};
   state.recipes = [];
   state.ratings = [];
+  state.shopping = [];
+  state.shoppingTidy = null;
   state.photoUrls = {};
   state.photoUrlsAt = 0;
   state.activePhase = null;

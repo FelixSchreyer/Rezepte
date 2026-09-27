@@ -26,3 +26,7 @@ export var TOLERANCE = [
 ];
 export var TOL_MAP = {};
 TOLERANCE.forEach(function(t){ TOL_MAP[t.id] = t; });
+
+// The Apple Shortcut that "Add to Reminders" runs (see ui/shopping.js).
+// Everyone who exports creates a shortcut with exactly this name once.
+export var SHOPPING_SHORTCUT = "Gut & Grain Shopping";

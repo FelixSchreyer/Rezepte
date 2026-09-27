@@ -7,6 +7,8 @@ import { ratingsFor, ratingSummary, starString } from "../lib/recipes.js";
 import { Backend } from "../backend/index.js";
 import { closeModal, renderModalInPlace } from "./modal.js";
 import { photoPicker } from "./photo-picker.js";
+import { peopleStepper, setPeople, shoppingItemFor } from "./shopping.js";
+import { DEFAULT_SERVINGS } from "../lib/shopping.js";
 
 export function renderDetail(m) {
   var r = state.recipes.find(function(x){ return x.id === m.recipeId; });
@@ -35,7 +37,9 @@ export function renderDetail(m) {
   wrap.appendChild(dots);
 
   if ((r.tags||[]).length) wrap.appendChild(el("div", { class: "tags", text: (r.tags||[]).join(" · ") }));
-  wrap.appendChild(el("div", { class: "meta-line", style: "margin-top:8px;", text: "Added by " + (r.addedByName || "someone") + (r.prepMinutes ? " · " + r.prepMinutes + " min" : "") }));
+  var servings = r.servings || DEFAULT_SERVINGS;
+  wrap.appendChild(el("div", { class: "meta-line", style: "margin-top:8px;", text: "Added by " + (r.addedByName || "someone") + " · Serves " + servings + (r.prepMinutes ? " · " + r.prepMinutes + " min" : "") }));
+  wrap.appendChild(renderShoppingControl(m, r, servings));
 
   var ingSection = el("div", { class: "detail-section" }, [ el("h4", { text: "Ingredients" }) ]);
   var ul = el("ul", { class: "ingredient-list" });
@@ -84,6 +88,28 @@ export function renderDetail(m) {
   }
 
   return wrap;
+}
+
+// "Add to shopping list", or — once it's on — for how many people, and a
+// way to take it off again. The list is the family's, shared live.
+function renderShoppingControl(m, r, servings) {
+  var item = shoppingItemFor(r.id);
+  function fail() { m.shopError = "Couldn't update the shopping list — check your connection."; renderModalInPlace(); }
+  var box = el("div", { class: "detail-shop" });
+  if (!item) {
+    box.appendChild(el("button", { class: "btn btn-sm", attrs: { type: "button" }, text: "+ Add to shopping list", on: { click: function(){
+      m.shopError = "";
+      setPeople(r.id, servings).catch(fail);
+    } } }));
+  } else {
+    box.appendChild(el("span", { class: "detail-shop-label", text: "On the shopping list for" }));
+    box.appendChild(peopleStepper(item.people || servings, function(n){ setPeople(r.id, n).catch(fail); }));
+    box.appendChild(el("button", { class: "btn btn-ghost btn-sm", attrs: { type: "button" }, text: "Remove", on: { click: function(){
+      Backend.removeFromShopping(r.id).catch(fail);
+    } } }));
+  }
+  if (m.shopError) box.appendChild(el("div", { class: "form-error", style: "margin:6px 0 0; flex-basis:100%;", text: m.shopError }));
+  return box;
 }
 
 // Any approved member can add a photo to a recipe, or replace it — the one

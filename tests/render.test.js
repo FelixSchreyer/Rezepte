@@ -20,6 +20,8 @@ function setState(patch) {
   state.members = {};
   state.recipes = [];
   state.ratings = [];
+  state.shopping = [];
+  state.shoppingTidy = null;
   state.activePhase = null;
   state.activeTags = {};
   state.tagMenuOpen = false;
@@ -150,6 +152,76 @@ describe("render — filters and photos", function () {
   });
 });
 
+describe("render — shopping list", function () {
+  function detail() {
+    return { type: "detail", recipeId: "r-congee", ratingStars: 0, ratingTol: "", ratingComment: "" };
+  }
+
+  it("shows the cart with the number of planned recipes", function () {
+    setState({ recipes: SEED_RECIPES, shopping: [{ recipeId: "r-congee", people: 2 }, { recipeId: "r-oats", people: 2 }] });
+    render();
+    expect(root.querySelector(".cart-btn .cart-count").textContent).toBe("2");
+  });
+
+  it("shows the cart without a count when the list is empty", function () {
+    setState({ recipes: SEED_RECIPES });
+    render();
+    expect(root.querySelectorAll(".cart-btn")).toHaveLength(1);
+    expect(root.querySelectorAll(".cart-count")).toHaveLength(0);
+  });
+
+  it("offers \"Add to shopping list\" on a recipe that isn't on it", function () {
+    setState({ recipes: SEED_RECIPES, modal: detail() });
+    render();
+    expect(root.querySelector(".detail-shop").textContent).toContain("Add to shopping list");
+  });
+
+  it("shows the people stepper on a recipe that is on the list", function () {
+    setState({ recipes: SEED_RECIPES, shopping: [{ recipeId: "r-congee", people: 3 }], modal: detail() });
+    render();
+    expect(root.querySelector(".detail-shop .stepper-value").textContent).toBe("3 people");
+  });
+
+  it("lists recipes and the added-up ingredients in the panel", function () {
+    var recipes = [
+      { id: "a", title: "Pasta A", phases: ["remission"], tags: [], servings: 2, ingredients: ["200 g pasta"] },
+      { id: "b", title: "Pasta B", phases: ["remission"], tags: [], servings: 2, ingredients: ["200 g pasta"] }
+    ];
+    setState({ recipes: recipes, shopping: [{ recipeId: "a", people: 2 }, { recipeId: "b", people: 2 }], modal: { type: "shopping", error: "", tidying: false, confirmClear: false } });
+    render();
+    expect(root.querySelectorAll(".shop-recipe")).toHaveLength(2);
+    var lines = Array.from(root.querySelectorAll(".shop-lines li")).map(function (li) { return li.textContent; });
+    expect(lines).toEqual(["400 g pasta"]);
+    expect(root.textContent).toContain("Add to Reminders");
+    expect(root.textContent).toContain("Clear list");
+  });
+
+  it("uses the AI-tidied list while it still matches the recipes", function () {
+    var recipes = [{ id: "a", title: "A", phases: ["remission"], tags: [], servings: 2, ingredients: ["200 g rice", "100 g white rice"] }];
+    setState({
+      recipes: recipes, shopping: [{ recipeId: "a", people: 2 }],
+      shoppingTidy: { source: JSON.stringify(["200 g rice", "100 g white rice"]), items: ["300 g rice"] },
+      modal: { type: "shopping", error: "", tidying: false, confirmClear: false }
+    });
+    render();
+    var lines = Array.from(root.querySelectorAll(".shop-lines li")).map(function (li) { return li.textContent; });
+    expect(lines).toEqual(["300 g rice"]);
+    expect(root.textContent).toContain("Tidied up with AI");
+  });
+
+  it("asks for a second tap before clearing", function () {
+    setState({ recipes: SEED_RECIPES, shopping: [{ recipeId: "r-congee", people: 2 }], modal: { type: "shopping", error: "", tidying: false, confirmClear: true } });
+    render();
+    expect(root.textContent).toContain("Tap again to clear the whole list");
+  });
+
+  it("explains how to fill the list when it's empty", function () {
+    setState({ recipes: SEED_RECIPES, modal: { type: "shopping", error: "", tidying: false, confirmClear: false } });
+    render();
+    expect(root.textContent).toContain("Nothing planned yet");
+  });
+});
+
 describe("render — access", function () {
   function profile(over) {
     var p = { id: "mock-user-alex", email: "alex@example.com", name: "Alex Moreau", role: "patient", status: "approved", isAdmin: false, joinedAt: 1 };
@@ -190,10 +262,10 @@ describe("render — account panel", function () {
     return Array.from(root.querySelectorAll(".settings-row .settings-label")).map(function (n) { return n.textContent; });
   }
 
-  it("keeps the header to the add button and the avatar", function () {
+  it("keeps the header to the add button, the cart and the avatar", function () {
     setState({ recipes: [fresh] });
     render();
-    expect(root.querySelectorAll(".top-actions > *")).toHaveLength(2);
+    expect(root.querySelectorAll(".top-actions > *")).toHaveLength(3);
   });
 
   it("badges the avatar with recipes to rate plus open requests", function () {

@@ -167,6 +167,7 @@ export function freshSeed() {
   return {
     session: null,
     accounts: accounts,
+    shopping: [],
     members: members,
     recipes: JSON.parse(JSON.stringify(SEED_RECIPES)),
     ratings: JSON.parse(JSON.stringify(SEED_RATINGS))

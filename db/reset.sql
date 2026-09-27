@@ -8,7 +8,7 @@
 -- files with SQL. Empty them in Storage -> recipe-photos (select all ->
 -- delete) if you want them gone too. The bucket itself can stay.
 
-drop table if exists public.ratings, public.recipes, public.members cascade;
+drop table if exists public.shopping_items, public.ratings, public.recipes, public.members cascade;
 
 drop policy if exists "recipe photos: read by approved members" on storage.objects;
 drop policy if exists "recipe photos: approved members upload into their own folder" on storage.objects;

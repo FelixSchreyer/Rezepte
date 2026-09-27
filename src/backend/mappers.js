@@ -26,10 +26,20 @@ export function mapRecipe(row) {
     ingredients: row.ingredients || [],
     instructions: row.instructions || "",
     prepMinutes: row.prep_minutes,
+    servings: row.servings || 2,
     addedBy: row.added_by,
     addedByName: row.added_by_name,
     photoPath: row.photo_path || null,
     createdAt: row.created_at
+  };
+}
+
+export function mapShoppingItem(row) {
+  return {
+    recipeId: row.recipe_id,
+    people: row.people,
+    addedBy: row.added_by,
+    addedAt: row.added_at
   };
 }
 

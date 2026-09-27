@@ -89,6 +89,7 @@ src/
     recipes.js      Filtering, tag collection, rating maths, recipes to rate (pure)
     members.js      Approved / admin checks, member lists (pure)
     photos.js       Shrinks a photo in the browser before upload
+    shopping.js     Scales and adds up ingredients for the shopping list (pure)
   ui/
     app.js          render() — rebuilds the view from `state`
     screens.js      Loading / connection-failed / waiting / no-access screens
@@ -101,6 +102,7 @@ src/
     account.js      Account panel behind the avatar: menu + pages
     add-recipe.js   Add-a-recipe form
     photo-picker.js "Add a photo" button (camera or library on phones)
+    shopping.js     Shopping list panel: people per recipe, export, clear
     detail.js       Recipe detail + rating form
     notifications.js  Account page: recipes waiting for the patient's rating
     members.js      Account page (admins): let people in, decline, remove access
@@ -113,6 +115,7 @@ db/
   schema.sql        Supabase schema. Run once in the SQL Editor.
   reset.sql         Deletes all tables, data and logins, before a fresh schema.sql
   migrate-002-photos.sql  Adds recipe photos to a project set up before them
+  migrate-003-shopping.sql  Adds servings and the shared shopping list
 docs/
   architecture.md   How the pieces fit together
 ```

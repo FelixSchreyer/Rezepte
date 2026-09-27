@@ -6,7 +6,7 @@
 // safe, so the null cases below are the point of this file.
 
 import { describe, it, expect } from "./harness.js";
-import { mapMember, mapRecipe, mapRating } from "../src/backend/mappers.js";
+import { mapMember, mapRecipe, mapRating, mapShoppingItem } from "../src/backend/mappers.js";
 
 describe("mapMember", function () {
   it("renames the snake_case columns", function () {
@@ -40,6 +40,7 @@ describe("mapRecipe", function () {
     added_by: "u1",
     added_by_name: "Sam",
     photo_path: "u1/p.jpg",
+    servings: 4,
     created_at: 1700000000000
   };
 
@@ -52,11 +53,16 @@ describe("mapRecipe", function () {
       ingredients: ["rice", "water"],
       instructions: "Simmer.",
       prepMinutes: 90,
+      servings: 4,
       addedBy: "u1",
       addedByName: "Sam",
       photoPath: "u1/p.jpg",
       createdAt: 1700000000000
     });
+  });
+
+  it("assumes 2 servings when the column is missing", function () {
+    expect(mapRecipe({ id: "r3" }).servings).toBe(2);
   });
 
   it("turns a missing photo into null", function () {
@@ -95,5 +101,12 @@ describe("mapRating", function () {
       id: "rt1", recipeId: "r1", uid: "u1", name: "Alex",
       stars: 4, tolerance: "medium", comment: "ok", createdAt: 1700000000000
     });
+  });
+});
+
+describe("mapShoppingItem", function () {
+  it("renames the snake_case columns", function () {
+    expect(mapShoppingItem({ recipe_id: "r1", people: 3, added_by: "u1", added_at: 5 }))
+      .toEqual({ recipeId: "r1", people: 3, addedBy: "u1", addedAt: 5 });
   });
 });

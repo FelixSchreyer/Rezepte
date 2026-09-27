@@ -275,6 +275,44 @@ describe("MockBackend — quick fill", function () {
   });
 });
 
+describe("MockBackend — shopping list", function () {
+  beforeAll(reset);
+
+  async function rows(fn) {
+    var got = [];
+    var off = MockBackend.onShopping(function (r) { got = r; });
+    await fn();
+    off();
+    return got;
+  }
+
+  it("starts empty", async function () {
+    expect(await rows(function () { return Promise.resolve(); })).toEqual([]);
+  });
+
+  it("adds a recipe once and updates its people on a second add", async function () {
+    var got = await rows(async function () {
+      await MockBackend.setShoppingPeople("r-congee", 2, ALEX);
+      await MockBackend.setShoppingPeople("r-congee", 4, ALEX);
+    });
+    expect(got).toHaveLength(1);
+    expect(got[0].people).toBe(4);
+  });
+
+  it("removes one recipe", async function () {
+    var got = await rows(async function () {
+      await MockBackend.setShoppingPeople("r-oats", 2, ALEX);
+      await MockBackend.removeFromShopping("r-congee");
+    });
+    expect(got.map(function (r) { return r.recipeId; })).toEqual(["r-oats"]);
+  });
+
+  it("clears the whole list", async function () {
+    var got = await rows(function () { return MockBackend.clearShopping(); });
+    expect(got).toEqual([]);
+  });
+});
+
 describe("MockBackend — ratings", function () {
   beforeAll(reset);
 

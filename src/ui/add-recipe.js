@@ -107,6 +107,13 @@ export function renderAddForm(m) {
   prepField.appendChild(prepInput);
   wrap.appendChild(prepField);
 
+  var servField = el("label", { class: "field" }, [ el("span", { class: "lbl", text: "Serves (people)" }) ]);
+  var servInput = el("input", { attrs: { type: "number", min: "1", max: "50", placeholder: "2" } });
+  servInput.value = m.servings;
+  servInput.addEventListener("input", function(e){ m.servings = e.target.value; });
+  servField.appendChild(servInput);
+  wrap.appendChild(servField);
+
   wrap.appendChild(renderPhotoField(m));
 
   if (m.error) wrap.appendChild(el("div", { class: "form-error", text: m.error }));
@@ -196,6 +203,7 @@ export function quickFill(m) {
     if (res.ingredients && res.ingredients.length) m.ingredients = res.ingredients.join("\n");
     if (res.instructions) m.instructions = res.instructions;
     if (res.prepMinutes) m.prepMinutes = String(res.prepMinutes);
+    if (res.servings) m.servings = String(res.servings);
     (res.tags || []).forEach(function(t){ m.tags[t] = true; });
     m.filling = false;
     m.filled = true;
@@ -261,6 +269,7 @@ export function submitAddRecipe(m) {
     ingredients: ingredients,
     instructions: m.instructions.trim(),
     prepMinutes: m.prepMinutes ? Number(m.prepMinutes) : null,
+    servings: Math.max(1, Math.min(50, Math.round(Number(m.servings)) || 2)),
     addedBy: state.uid,
     addedByName: (state.myProfile && state.myProfile.name) || "Someone",
     createdAt: Date.now()

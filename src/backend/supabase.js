@@ -1,5 +1,5 @@
 import { SUPABASE_URL, SUPABASE_KEY } from "../config.js";
-import { mapMember, mapRecipe, mapRating } from "./mappers.js";
+import { mapMember, mapRecipe, mapRating, mapShoppingItem } from "./mappers.js";
 import { blobToBase64 } from "../lib/photos.js";
 
 /**
@@ -31,7 +31,12 @@ import { blobToBase64 } from "../lib/photos.js";
  *   uploadPhoto(uid, blob)       -> Promise<path>   (a JPEG, already resized)
  *   photoUrls(paths)             -> Promise<{ path: url }>  (valid ~24h)
  *   setRecipePhoto(recipeId, path) -> Promise<void>
- *   structureRecipe(text, tags, images) -> Promise<{ title, ingredients, instructions, prepMinutes, tags }>
+ *   onShopping(cb)               -> unsubscribe();  cb(Array<{recipeId, people, ...}>)
+ *   setShoppingPeople(recipeId, people, uid) -> Promise<void>  (adds or updates)
+ *   removeFromShopping(recipeId) -> Promise<void>
+ *   clearShopping()              -> Promise<void>
+ *   tidyShoppingList(lines)      -> Promise<string[]>   (LLM; same error codes as below)
+ *   structureRecipe(text, tags, images) -> Promise<{ title, ingredients, instructions, prepMinutes, servings, tags }>
  *                                   images: JPEG Blobs of a printed/handwritten recipe (optional, up to 3)
  *                                   (rejects with .code "rate" | "busy" | "large" | "missing" | "denied" | "failed")
  *   upsertRating(recipeId, uid, data) -> Promise<void>
@@ -85,6 +90,24 @@ export const Backend = (function () {
       .on("postgres_changes", { event: "*", schema: "public", table: table }, load)
       .subscribe();
     return function () { sb.removeChannel(channel); };
+  }
+
+  // Both LLM features go through the one structure-recipe function; `task`
+  // in the body picks which. Errors carry a .code the UI turns into a message.
+  async function callLlm(body) {
+    var res = await sb.functions.invoke("structure-recipe", { body: body });
+    if (res.error) {
+      var status = res.error.context && res.error.context.status;
+      var err = new Error(res.error.message || "structure-recipe failed");
+      err.code = status === 429 ? "rate"
+        : status === 503 ? "busy"
+        : status === 413 ? "large"
+        : status === 404 ? "missing"
+        : (status === 401 || status === 403) ? "denied"
+        : "failed";
+      throw err;
+    }
+    return res.data;
   }
 
   return {
@@ -186,6 +209,7 @@ export const Backend = (function () {
         ingredients: data.ingredients,
         instructions: data.instructions,
         prep_minutes: data.prepMinutes,
+        servings: data.servings || 2,
         added_by: data.addedBy,
         added_by_name: data.addedByName,
         photo_path: data.photoPath || null,
@@ -215,25 +239,38 @@ export const Backend = (function () {
       check(await sb.from("recipes").update({ photo_path: path }).eq("id", recipeId));
     },
 
+    onShopping: function (cb) {
+      return liveTable("shopping_items", mapShoppingItem, cb);
+    },
+
+    setShoppingPeople: async function (recipeId, people, uid) {
+      check(await sb.from("shopping_items").upsert(
+        { recipe_id: recipeId, people: people, added_by: uid, added_at: Date.now() },
+        { onConflict: "recipe_id" }
+      ));
+    },
+
+    removeFromShopping: async function (recipeId) {
+      check(await sb.from("shopping_items").delete().eq("recipe_id", recipeId));
+    },
+
+    // PostgREST refuses a DELETE without a filter; every row matches this one.
+    clearShopping: async function () {
+      check(await sb.from("shopping_items").delete().gte("added_at", 0));
+    },
+
+    tidyShoppingList: async function (lines) {
+      var res = await callLlm({ task: "tidy-list", items: lines });
+      return res.items || [];
+    },
+
     // Free text -> form fields, via the structure-recipe Edge Function
     // (supabase/functions/structure-recipe), which holds the Gemini key.
     structureRecipe: async function (text, tags, images) {
       var encoded = await Promise.all((images || []).map(function (blob) {
         return blobToBase64(blob).then(function (data) { return { mimeType: blob.type || "image/jpeg", data: data }; });
       }));
-      var res = await sb.functions.invoke("structure-recipe", { body: { text: text, tags: tags, images: encoded } });
-      if (res.error) {
-        var status = res.error.context && res.error.context.status;
-        var err = new Error(res.error.message || "structure-recipe failed");
-        err.code = status === 429 ? "rate"
-          : status === 503 ? "busy"
-          : status === 413 ? "large"
-          : status === 404 ? "missing"
-          : (status === 401 || status === 403) ? "denied"
-          : "failed";
-        throw err;
-      }
-      return res.data;
+      return callLlm({ text: text, tags: tags, images: encoded });
     },
 
     upsertRating: async function (recipeId, uid, data) {

@@ -60,7 +60,10 @@ setMemberStatus(uid, status)       -> Promise<void>   (admins only)
 uploadPhoto(uid, blob)             -> Promise<path>
 photoUrls(paths)                   -> Promise<{ path: url }>
 setRecipePhoto(recipeId, path)     -> Promise<void>
-structureRecipe(text, tags)        -> Promise<{ title, ingredients, instructions, prepMinutes, tags }>
+structureRecipe(text, tags, images) -> Promise<{ title, ingredients, instructions, prepMinutes, servings, tags }>
+onShopping(cb)                     -> unsubscribe();  cb(Array)
+setShoppingPeople(recipeId, people, uid) | removeFromShopping(recipeId) | clearShopping()
+tidyShoppingList(lines)            -> Promise<string[]>
 onMembers | onRecipes | onRatings  -> unsubscribe();  cb(Array)
 addRecipe(data)                    -> Promise<void>
 upsertRating(recipeId, uid, data)  -> Promise<void>
@@ -209,6 +212,30 @@ client. The function refuses anyone who is not an approved member, caps the
 input size, asks Gemini for JSON against a schema, and re-validates what
 comes back (tags only from the list the app sent). The mock answers with a
 crude line-based guess so the flow works without a key.
+
+## Shopping list
+
+One list for the whole family (`shopping_items`, live like the other
+tables). It stores only which recipes are planned and for how many people;
+the ingredients are worked out in the browser from the recipes each time,
+so the list never holds stale copies.
+
+`lib/shopping.js` scales each recipe from the people it serves
+(`recipes.servings`, default 2) to the people it's cooked for, then adds up
+lines that are clearly the same thing: matching name (lower-cased, roughly
+singular, preparation notes dropped) and a unit that converts (g/kg, ml/l,
+counts, spoons). Everything else stays on its own line — a duplicate line is
+better than a wrong amount. Things bought whole are rounded up.
+
+"Tidy up with AI" sends those lines to the same Edge Function with
+`task: "tidy-list"`, to merge synonyms the rules leave alone. The result is
+only shown while it still matches the current list (`state.shoppingTidy`)
+and can be undone; it is per device, not shared.
+
+"Add to Reminders" opens an Apple Shortcut by name (`SHOPPING_SHORTCUT` in
+`config.js`) through `shortcuts://run-shortcut`, passing one item per line.
+A web page can't write to Reminders itself; each person sets the Shortcut up
+once, and the steps are in the panel.
 
 ## The account panel
 

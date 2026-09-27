@@ -86,11 +86,11 @@ function uuid() {
 
 // ---------------- subscriptions ----------------
 
-var listeners = { members: [], recipes: [], ratings: [] };
+var listeners = { members: [], recipes: [], ratings: [], shopping: [] };
 
 function rowsFor(table, db) {
   if (table === "members") return Object.keys(db.members).map(function (k) { return db.members[k]; });
-  return db[table];
+  return db[table] || [];
 }
 
 function emit(table) {
@@ -239,6 +239,7 @@ export const MockBackend = {
       ingredients: data.ingredients,
       instructions: data.instructions,
       prepMinutes: data.prepMinutes,
+      servings: data.servings || 2,
       addedBy: data.addedBy,
       addedByName: data.addedByName,
       photoPath: data.photoPath || null,
@@ -275,6 +276,49 @@ export const MockBackend = {
     return later(out);
   },
 
+  onShopping: function (cb) { return subscribe("shopping", cb); },
+
+  // Mirrors shopping_items: one row per recipe, so a second add updates it.
+  setShoppingPeople: function (recipeId, people, uid) {
+    var db = read();
+    db.shopping = db.shopping || [];
+    var row = db.shopping.filter(function (s) { return s.recipeId === recipeId; })[0];
+    if (row) row.people = people;
+    else db.shopping.push({ recipeId: recipeId, people: people, addedBy: uid, addedAt: Date.now() });
+    write(db);
+    emit("shopping");
+    return later();
+  },
+
+  removeFromShopping: function (recipeId) {
+    var db = read();
+    db.shopping = (db.shopping || []).filter(function (s) { return s.recipeId !== recipeId; });
+    write(db);
+    emit("shopping");
+    return later();
+  },
+
+  clearShopping: function () {
+    var db = read();
+    db.shopping = [];
+    write(db);
+    emit("shopping");
+    return later();
+  },
+
+  // No LLM: pretend to tidy by dropping exact duplicates, so the button can
+  // be tried without a Gemini key.
+  tidyShoppingList: function (lines) {
+    if (FAIL === "llm") return failLater("mock llm failure");
+    var seen = {};
+    return later((lines || []).filter(function (l) {
+      var k = l.toLowerCase();
+      if (seen[k]) return false;
+      seen[k] = true;
+      return true;
+    }));
+  },
+
   // No LLM here: a crude line-based guess, so the quick-fill flow can be
   // tried without a Gemini key. Lines that start with an amount or a bullet
   // become ingredients, the first other line the title, the rest steps.
@@ -288,6 +332,7 @@ export const MockBackend = {
         ingredients: ["200 g white rice", "1 chicken breast", "1 L water"],
         instructions: "1. Simmer the rice in the water for an hour.\n2. Poach the chicken in it for the last 20 minutes.",
         prepMinutes: 70,
+        servings: 4,
         tags: []
       });
     }
@@ -311,6 +356,7 @@ export const MockBackend = {
       ingredients: ingredients,
       instructions: steps.map(function (s, i) { return (i + 1) + ". " + s.replace(/^\d+\.\s*/, ""); }).join("\n"),
       prepMinutes: minutes ? Number(minutes[1]) : null,
+      servings: (function () { var s = /serves\s+(\d+)|(\d+)\s+(people|persons|servings|personen)/i.exec(text || ""); return s ? Number(s[1] || s[2]) : null; })(),
       tags: (tags || []).filter(function (t) { return lower.indexOf(t.toLowerCase()) !== -1; })
     });
   },

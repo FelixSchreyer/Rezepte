@@ -16,9 +16,11 @@ export var state = {
   photoUrls: {},         // photoPath -> displayable URL (see boot.js)
   photoUrlsAt: 0,        // when photoUrls was last filled from scratch
   ratings: [],           // [{id, recipeId, uid, name, stars, tolerance, comment}]
+  shopping: [],          // [{recipeId, people, addedBy, addedAt}] — the family's list
+  shoppingTidy: null,    // {source, items}: the AI-tidied list, while it still matches
   activePhase: null,
   activeTags: {},        // tag -> true
   tagMenuOpen: false,    // tag filter dropdown
   search: "",
-  modal: null            // {type: 'onboarding'|'add'|'detail'|'account', ...}
+  modal: null            // {type: 'onboarding'|'add'|'detail'|'account'|'shopping', ...}
 };
