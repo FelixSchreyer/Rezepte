@@ -31,7 +31,7 @@ import { mapMember, mapRecipe, mapRating } from "./mappers.js";
  *   photoUrls(paths)             -> Promise<{ path: url }>  (valid ~24h)
  *   setRecipePhoto(recipeId, path) -> Promise<void>
  *   structureRecipe(text, tags)  -> Promise<{ title, ingredients, instructions, prepMinutes, tags }>
- *                                   (rejects with .code "rate" | "missing" | "denied" | "failed")
+ *                                   (rejects with .code "rate" | "busy" | "missing" | "denied" | "failed")
  *   upsertRating(recipeId, uid, data) -> Promise<void>
  *   fetchFilterState(uid)        -> Promise<Object | null>
  *   saveFilterState(uid, data)   -> Promise<void>
@@ -221,6 +221,7 @@ export const Backend = (function () {
         var status = res.error.context && res.error.context.status;
         var err = new Error(res.error.message || "structure-recipe failed");
         err.code = status === 429 ? "rate"
+          : status === 503 ? "busy"
           : status === 404 ? "missing"
           : (status === 401 || status === 403) ? "denied"
           : "failed";

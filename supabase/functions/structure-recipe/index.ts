@@ -7,7 +7,7 @@
 //
 //   POST { text: string, tags: string[] }
 //   200  { title, ingredients: string[], instructions, prepMinutes, tags: string[] }
-//   4xx/5xx { error: string }
+//   4xx/5xx { error: string }   (429 = quota used up, 503 = Gemini busy)
 //
 // Phases are deliberately not produced: which illness phase a dish suits is
 // a medical judgement the family makes, not the model.
@@ -19,7 +19,10 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-2.5-flash";
+// Google retires model names over time; when a call fails with "model is no
+// longer available", set the GEMINI_MODEL secret to the name its error
+// message suggests — no redeploy needed.
+const MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-3.8-flash";
 const MAX_INPUT = 8000;
 
 const CORS = {
@@ -93,22 +96,34 @@ Deno.serve(async (req) => {
   if (text.length > MAX_INPUT) return reply(400, { error: "text is too long" });
   const knownTags = Array.isArray(body.tags) ? body.tags.filter((t): t is string => typeof t === "string") : [];
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt(text, knownTags) }] }],
-        generationConfig: {
-          responseMimeType: "application/json",
-          responseSchema: RESPONSE_SCHEMA,
-          temperature: 0.2,
-        },
-      }),
+  const request = JSON.stringify({
+    contents: [{ role: "user", parts: [{ text: prompt(text, knownTags) }] }],
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: RESPONSE_SCHEMA,
+      temperature: 0.2,
     },
-  );
+  });
+
+  // "High demand" (503) and hiccups (500) are usually over within seconds,
+  // and common on the free tier — retry twice before giving up.
+  let res: Response;
+  for (let attempt = 0; ; attempt++) {
+    res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+        body: request,
+      },
+    );
+    if ((res.status !== 503 && res.status !== 500) || attempt === 2) break;
+    await res.body?.cancel();
+    await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+  }
+
   if (res.status === 429) return reply(429, { error: "rate limited" });
+  if (res.status === 503) return reply(503, { error: "model busy" });
   if (!res.ok) {
     console.error("Gemini error", res.status, await res.text());
     return reply(502, { error: "model request failed" });

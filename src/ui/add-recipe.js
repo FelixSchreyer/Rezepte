@@ -167,6 +167,7 @@ export function quickFill(m) {
     m.filling = false;
     var code = err && err.code;
     m.fillError = code === "rate" ? "The free quota for today is used up. Try again later, or fill in the form by hand."
+      : code === "busy" ? "Gemini is overloaded right now. Try again in a minute."
       : code === "missing" ? "Quick fill isn't set up yet: the structure-recipe function is missing in Supabase."
       : code === "denied" ? "Quick fill refused the request. Try signing out and in again."
       : "Couldn't sort this out right now. Fill in the form by hand, or try again in a moment.";
