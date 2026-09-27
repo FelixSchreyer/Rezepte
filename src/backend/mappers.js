@@ -5,7 +5,16 @@
 // and so the shape of an app-side object is documented in exactly one place.
 
 export function mapMember(row) {
-  return { id: row.id, name: row.name, role: row.role, joinedAt: row.joined_at, lastPhase: row.last_phase };
+  return {
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    role: row.role,
+    status: row.status,
+    isAdmin: !!row.is_admin,
+    joinedAt: row.joined_at,
+    lastPhase: row.last_phase
+  };
 }
 
 export function mapRecipe(row) {

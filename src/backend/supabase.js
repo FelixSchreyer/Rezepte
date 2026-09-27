@@ -10,14 +10,19 @@ import { mapMember, mapRecipe, mapRating } from "./mappers.js";
  * never touches Supabase or any database API directly — it
  * only calls Backend.* methods below.
  *
- * To move to a different backend later (e.g. Supabase), rewrite the
- * INSIDE of these functions to that backend's API. Nothing outside
- * this object needs to change, as long as the contract stays the same:
+ * To move to a different backend later, rewrite the INSIDE of these
+ * functions to that backend's API. Nothing outside this object needs
+ * to change, as long as the contract stays the same:
  *
  *   connect()                    -> Promise<{ ok: boolean }>
- *   getUid()                     -> Promise<string | null>  (valid after connect())
+ *   getUid()                     -> Promise<string | null>  (null = signed out)
+ *   signUp(email, password)      -> Promise<{ uid } | { error }>
+ *   signIn(email, password)      -> Promise<{ uid } | { error }>
+ *   signOut()                    -> Promise<void>
  *   fetchProfile(uid)            -> Promise<Object | null>
- *   saveProfile(uid, profile)    -> Promise<void>
+ *   createProfile(uid, profile)  -> Promise<void>   (new, pending member)
+ *   saveProfile(uid, profile)    -> Promise<void>   (name + role only)
+ *   setMemberStatus(uid, status) -> Promise<void>   (admins only)
  *   onMembers(cb)                -> unsubscribe();  cb(Array<{id, ...}>)
  *   onRecipes(cb)                -> unsubscribe();  cb(Array<{id, ...}>)
  *   onRatings(cb)                -> unsubscribe();  cb(Array<{id, ...}>)
@@ -26,14 +31,17 @@ import { mapMember, mapRecipe, mapRating } from "./mappers.js";
  *   fetchFilterState(uid)        -> Promise<Object | null>
  *   saveFilterState(uid, data)   -> Promise<void>
  *
- * Identity: getUid() transparently creates an anonymous Supabase session
- * on first visit (no email, password, or user action needed) and reuses
- * it on later visits from the same browser. "Signing in" from the
- * person's point of view is just the name+role onboarding step.
+ * Every write rejects on failure. supabase-js itself never throws for a
+ * refused query — it resolves with `{ error }` — so each write goes through
+ * check() to turn that into a rejection the UI can show.
+ *
+ * `error` from signUp/signIn is one of: "invalid", "exists", "weak",
+ * "confirm", "network" — the UI maps these to messages.
+ *
+ * Identity: email + password. Access is granted by an admin, not by
+ * signing up — see db/schema.sql.
  *
  * All ids are opaque strings. All timestamps are numbers (Date.now()).
- * Callers never assume anything about *how* data arrives beyond this
- * contract (no ORM objects, no query builders leak out).
  *
  * BACKEND: Supabase (Postgres + Auth + Realtime).
  * Schema: see db/schema.sql (tables: members, recipes, ratings;
@@ -41,6 +49,21 @@ import { mapMember, mapRecipe, mapRating } from "./mappers.js";
  */
 export const Backend = (function () {
   var sb = null;
+
+  function check(res) {
+    if (res && res.error) throw res.error;
+    return res;
+  }
+
+  function authError(err) {
+    var msg = ((err && err.message) || "").toLowerCase();
+    var code = (err && err.code) || "";
+    if (code === "invalid_credentials" || msg.indexOf("invalid login") !== -1) return "invalid";
+    if (code === "user_already_exists" || msg.indexOf("already registered") !== -1) return "exists";
+    if (code === "weak_password" || msg.indexOf("password") !== -1) return "weak";
+    if (code === "email_not_confirmed" || msg.indexOf("not confirmed") !== -1) return "confirm";
+    return "network";
+  }
 
   function liveTable(table, mapper, cb) {
     function load() {
@@ -68,22 +91,48 @@ export const Backend = (function () {
       }
     },
 
-    // Reuses an existing (anonymous) session if there is one; otherwise
-    // creates a new anonymous session on the spot. Returns null only if
-    // that genuinely fails (e.g. Anonymous sign-ins disabled on the
-    // Supabase project, or no network).
+    // The signed-in user, verified with the server rather than trusted from
+    // the stored session — a session left over from a deleted account (or
+    // from the old anonymous sign-in) is cleared and treated as signed out.
     getUid: async function () {
       var res = await sb.auth.getSession();
-      var session = res.data && res.data.session;
-      if (session) return session.user.id;
+      if (!(res.data && res.data.session)) return null;
 
-      try {
-        var signInRes = await sb.auth.signInAnonymously();
-        if (signInRes.error || !signInRes.data.user) return null;
-        return signInRes.data.user.id;
-      } catch (e) {
+      var userRes = await sb.auth.getUser();
+      var user = userRes.data && userRes.data.user;
+      if (userRes.error || !user || user.is_anonymous) {
+        await sb.auth.signOut({ scope: "local" });
         return null;
       }
+      return user.id;
+    },
+
+    signUp: async function (email, password) {
+      try {
+        var res = await sb.auth.signUp({ email: email, password: password });
+        if (res.error) return { error: authError(res.error) };
+        // With "Confirm email" switched on in Supabase there is no session
+        // until the mail link is clicked — and the built-in mailer does not
+        // deliver to arbitrary addresses. The UI explains what to change.
+        if (!res.data.session) return { error: "confirm" };
+        return { uid: res.data.user.id };
+      } catch (e) {
+        return { error: "network" };
+      }
+    },
+
+    signIn: async function (email, password) {
+      try {
+        var res = await sb.auth.signInWithPassword({ email: email, password: password });
+        if (res.error) return { error: authError(res.error) };
+        return { uid: res.data.user.id };
+      } catch (e) {
+        return { error: "network" };
+      }
+    },
+
+    signOut: async function () {
+      await sb.auth.signOut();
     },
 
     fetchProfile: async function (uid) {
@@ -95,23 +144,33 @@ export const Backend = (function () {
       }
     },
 
-    // Only writes the columns given — omitted columns (e.g. last_phase)
-    // are left untouched on an existing row.
-    saveProfile: function (uid, profile) {
-      return sb.from("members").upsert({
+    // status and is_admin are left to their column defaults (pending, false);
+    // the insert policy rejects anything else.
+    createProfile: async function (uid, profile) {
+      var session = (await sb.auth.getSession()).data.session;
+      check(await sb.from("members").insert({
         id: uid,
+        email: session && session.user.email,
         name: profile.name,
         role: profile.role,
         joined_at: profile.joinedAt
-      });
+      }));
+    },
+
+    saveProfile: async function (uid, profile) {
+      check(await sb.from("members").update({ name: profile.name, role: profile.role }).eq("id", uid));
+    },
+
+    setMemberStatus: async function (uid, status) {
+      check(await sb.rpc("set_member_status", { target: uid, new_status: status }));
     },
 
     onMembers: function (cb) { return liveTable("members", mapMember, cb); },
     onRecipes: function (cb) { return liveTable("recipes", mapRecipe, cb); },
     onRatings: function (cb) { return liveTable("ratings", mapRating, cb); },
 
-    addRecipe: function (data) {
-      return sb.from("recipes").insert({
+    addRecipe: async function (data) {
+      check(await sb.from("recipes").insert({
         title: data.title,
         phases: data.phases,
         tags: data.tags,
@@ -121,11 +180,11 @@ export const Backend = (function () {
         added_by: data.addedBy,
         added_by_name: data.addedByName,
         created_at: data.createdAt
-      });
+      }));
     },
 
-    upsertRating: function (recipeId, uid, data) {
-      return sb.from("ratings").upsert({
+    upsertRating: async function (recipeId, uid, data) {
+      check(await sb.from("ratings").upsert({
         recipe_id: recipeId,
         uid: uid,
         name: data.name,
@@ -133,7 +192,7 @@ export const Backend = (function () {
         tolerance: data.tolerance,
         comment: data.comment,
         created_at: data.createdAt
-      }, { onConflict: "recipe_id,uid" });
+      }, { onConflict: "recipe_id,uid" }));
     },
 
     // Private-in-practice per-viewer preference (which phase they last
@@ -143,8 +202,8 @@ export const Backend = (function () {
       return (profile && profile.lastPhase) ? { lastPhase: profile.lastPhase } : null;
     },
 
-    saveFilterState: function (uid, data) {
-      return sb.from("members").update({ last_phase: data.lastPhase }).eq("id", uid);
+    saveFilterState: async function (uid, data) {
+      check(await sb.from("members").update({ last_phase: data.lastPhase }).eq("id", uid));
     }
   };
 })();

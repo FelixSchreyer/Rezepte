@@ -1,4 +1,4 @@
-/* Full-screen states: loading, connection failure, sign-in failure. */
+/* Full-screen states: loading, connection failure, sign-in, waiting for approval. */
 
 .center-screen {
   min-height: 70vh; display: flex; align-items: center; justify-content: center; text-align: center; padding: 40px 20px;
@@ -6,3 +6,8 @@
 .center-screen .box { max-width: 380px; }
 .center-screen h2 { font-family: var(--serif); font-size: 22px; margin-bottom: 8px; }
 .center-screen p { color: var(--ink-soft); font-size: 14.5px; line-height: 1.5; }
+.center-screen .muted-small { color: var(--ink-faint); font-size: 13px; margin-top: 10px; }
+
+.auth-box { width: min(360px, 100%); }
+.auth-form { text-align: left; margin-top: 20px; }
+.auth-toggle { margin-top: 18px; }

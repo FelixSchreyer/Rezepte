@@ -49,8 +49,8 @@ header.top {
 .profile-chip .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
 .profile-chip .who .role { display: block; color: var(--ink-faint); font-size: 11px; }
 
-/* Notification bell (patients only) with its unread-count badge. */
-.bell {
+/* Round icon buttons (members for admins, bell for patients) with a count badge. */
+.icon-btn {
   position: relative;
   width: 36px; height: 36px; flex: none;
   display: flex; align-items: center; justify-content: center;
@@ -60,9 +60,9 @@ header.top {
   border-radius: 50%;
   cursor: pointer;
 }
-.bell:hover { border-color: var(--ink-faint); color: var(--ink); }
-.bell-icon { display: flex; }
-.bell-badge {
+.icon-btn:hover { border-color: var(--ink-faint); color: var(--ink); }
+.icon-btn-icon { display: flex; }
+.icon-badge {
   position: absolute; top: -4px; right: -4px;
   min-width: 18px; height: 18px; padding: 0 5px;
   border-radius: 999px;
@@ -70,4 +70,12 @@ header.top {
   border: 2px solid var(--bg);
   font-size: 10px; font-weight: 700; line-height: 14px;
   text-align: center;
+}
+
+/* Phones: with up to four controls in the top bar, the chip shrinks to its
+   initials so nothing wraps or scrolls sideways. */
+@media (max-width: 520px) {
+  .top-actions { gap: 8px; }
+  .profile-chip { padding: 6px; }
+  .profile-chip .who { display: none; }
 }

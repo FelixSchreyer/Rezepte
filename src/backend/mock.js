@@ -4,14 +4,22 @@
 //
 // Activate with ?mock in the URL — see index.js.
 //
-//   ?mock                 work as Alex (a patient, so the rating form shows)
-//   ?mock&user=sam        work as Sam (a member — rating form hidden)
+//   ?mock                 start signed out, at the sign-in screen. Seeded
+//                         accounts: alex@ / sam@ / robin@ / jordan@example.com,
+//                         password "password" (see seed.js)
+//   ?mock&user=alex       start signed in as Alex (approved patient + admin)
+//   ?mock&user=sam        start signed in as Sam (approved member)
+//   ?mock&user=jordan     start signed in as Jordan (waiting for approval)
 //   ?mock&user=nobody     an unknown name gets a fresh profile-less identity,
 //                         which is how you reach the onboarding modal
 //   ?mock&reset           wipe localStorage and reseed before starting
 //   ?mock&latency=800     slow every call down, to see the loading states
 //   ?mock&fail=connect    force the "Couldn't connect" screen
-//   ?mock&fail=auth       force the "Couldn't sign you in" screen
+//   ?mock&fail=auth       make every sign-in and sign-up fail
+//
+// Row-level security is NOT emulated: a pending member could read recipes
+// here if the app asked. The one server-side rule the mock does enforce is
+// set_member_status()'s "approved admins only, never on yourself".
 //
 // Realtime is emulated two ways: writes in this tab notify local subscribers
 // directly, and the `storage` event notifies *other tabs*. Open two windows
@@ -20,7 +28,7 @@
 
 import { freshSeed, SEED_MEMBERS } from "./seed.js";
 
-var STORE_KEY = "gut-and-grain-mock-v1";
+var STORE_KEY = "gut-and-grain-mock-v2";
 
 function params() {
   return new URLSearchParams(window.location.search);
@@ -40,6 +48,10 @@ function later(value) {
   return new Promise(function (resolve) {
     setTimeout(function () { resolve(value); }, LATENCY);
   });
+}
+
+function failLater(message) {
+  return later().then(function () { throw new Error(message); });
 }
 
 function read() {
@@ -103,8 +115,8 @@ window.addEventListener("storage", function (e) {
 
 // A name in ?user= maps to that seeded member; anything unrecognised becomes a
 // brand-new identity with no profile, which lands you in onboarding.
-function resolveUid() {
-  var who = (option("user", "alex") || "").toLowerCase();
+function resolveUid(who) {
+  who = (who || "").toLowerCase();
   var match = SEED_MEMBERS.filter(function (m) {
     return m.id === "mock-user-" + who || m.name.toLowerCase().split(" ")[0] === who;
   })[0];
@@ -119,14 +131,45 @@ export const MockBackend = {
     if (params().has("reset")) {
       try { window.localStorage.removeItem(STORE_KEY); } catch (e) { /* ignore */ }
     }
-    read();          // force a seed on first run
+    var db = read();   // force a seed on first run
+    // ?user= behaves like having signed in as that person on this device.
+    if (params().has("user")) { db.session = resolveUid(option("user", "")); write(db); }
     showBadge();
     return later({ ok: true });
   },
 
   getUid: function () {
-    if (FAIL === "auth") return later(null);
-    return later(resolveUid());
+    return later(read().session || null);
+  },
+
+  signUp: function (email, password) {
+    if (FAIL === "auth") return later({ error: "network" });
+    email = (email || "").trim().toLowerCase();
+    if ((password || "").length < 6) return later({ error: "weak" });
+    var db = read();
+    if (db.accounts[email]) return later({ error: "exists" });
+    var uid = uuid();
+    db.accounts[email] = { uid: uid, password: password };
+    db.session = uid;
+    write(db);
+    return later({ uid: uid });
+  },
+
+  signIn: function (email, password) {
+    if (FAIL === "auth") return later({ error: "network" });
+    var db = read();
+    var account = db.accounts[(email || "").trim().toLowerCase()];
+    if (!account || account.password !== password) return later({ error: "invalid" });
+    db.session = account.uid;
+    write(db);
+    return later({ uid: account.uid });
+  },
+
+  signOut: function () {
+    var db = read();
+    db.session = null;
+    write(db);
+    return later();
   },
 
   fetchProfile: function (uid) {
@@ -134,16 +177,45 @@ export const MockBackend = {
     return later(db.members[uid] || null);
   },
 
-  saveProfile: function (uid, profile) {
+  // Mirrors the insert policy: a new member is always pending, never admin.
+  createProfile: function (uid, profile) {
     var db = read();
-    var existing = db.members[uid] || {};
+    if (db.members[uid]) return failLater("members row already exists");
+    var email = Object.keys(db.accounts).filter(function (e) { return db.accounts[e].uid === uid; })[0];
     db.members[uid] = {
       id: uid,
+      email: email || "",
       name: profile.name,
       role: profile.role,
+      status: "pending",
+      isAdmin: false,
       joinedAt: profile.joinedAt,
-      lastPhase: existing.lastPhase === undefined ? null : existing.lastPhase
+      lastPhase: null
     };
+    write(db);
+    emit("members");
+    return later();
+  },
+
+  // Only name and role, like the column grants in db/schema.sql.
+  saveProfile: function (uid, profile) {
+    var db = read();
+    if (!db.members[uid]) return failLater("no members row to update");
+    db.members[uid].name = profile.name;
+    db.members[uid].role = profile.role;
+    write(db);
+    emit("members");
+    return later();
+  },
+
+  // Mirrors set_member_status() in db/schema.sql.
+  setMemberStatus: function (uid, status) {
+    var db = read();
+    var me = db.members[db.session];
+    if (!me || me.status !== "approved" || !me.isAdmin) return failLater("only admins can change member status");
+    if (uid === db.session) return failLater("admins cannot change their own status");
+    if (status !== "approved" && status !== "rejected") return failLater("invalid status: " + status);
+    if (db.members[uid]) db.members[uid].status = status;
     write(db);
     emit("members");
     return later();
@@ -233,13 +305,12 @@ function showBadge() {
     "#mock-badge{position:fixed;left:12px;bottom:12px;z-index:9999;" +
     "font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.04em;" +
     "background:#8B3A1F;color:#fff;padding:7px 10px;border-radius:999px;" +
-    "box-shadow:0 2px 8px rgba(0,0,0,.25);opacity:.9;text-transform:uppercase}" +
-    "#mock-badge span{opacity:.75;text-transform:none;font-weight:400}";
+    "box-shadow:0 2px 8px rgba(0,0,0,.25);opacity:.9;text-transform:uppercase}";
   document.head.appendChild(style);
 
   var badge = document.createElement("div");
   badge.id = "mock-badge";
   badge.title = "Local mock data in localStorage — the real Supabase project is untouched.";
-  badge.innerHTML = "Mock data <span>· " + resolveUid().replace("mock-user-", "") + "</span>";
+  badge.textContent = "Mock data";
   document.body.appendChild(badge);
 }

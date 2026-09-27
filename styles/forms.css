@@ -5,7 +5,7 @@ label.field .lbl {
   display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--ink);
 }
 label.field .hint { font-weight: 400; color: var(--ink-faint); font-size: 12px; }
-input[type=text], input[type=number], textarea, select {
+input[type=text], input[type=email], input[type=password], input[type=number], textarea, select {
   width: 100%;
   padding: 10px 12px;
   border-radius: 8px;
@@ -34,3 +34,10 @@ textarea { resize: vertical; min-height: 84px; line-height: 1.4; }
 .add-tag-row input { flex: 1; }
 
 .form-error { color: var(--danger); font-size: 13px; margin: -8px 0 14px; }
+
+/* Text-style button for inline links such as "Create an account". */
+.link-btn {
+  border: none; background: none; padding: 0;
+  color: var(--accent); font: inherit; font-weight: 600;
+  text-decoration: underline; text-underline-offset: 2px; cursor: pointer;
+}

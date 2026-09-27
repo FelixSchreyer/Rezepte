@@ -15,7 +15,8 @@ function setState(patch) {
   state.capsMissing = false;
   state.slowLoad = false;
   state.uid = "mock-user-alex";
-  state.myProfile = { name: "Alex Moreau", role: "patient", joinedAt: 1 };
+  state.myProfile = { id: "mock-user-alex", email: "alex@example.com", name: "Alex Moreau", role: "patient", status: "approved", isAdmin: false, joinedAt: 1 };
+  state.auth = { mode: "signin", email: "", password: "", error: "", busy: false };
   state.members = {};
   state.recipes = [];
   state.ratings = [];
@@ -40,10 +41,19 @@ describe("render — screens", function () {
     expect(root.textContent).toContain("Couldn't connect");
   });
 
-  it("shows the sign-in-failure screen when there is no uid", function () {
+  it("shows the sign-in screen when nobody is signed in", function () {
     setState({ uid: null });
     render();
-    expect(root.textContent).toContain("Couldn't sign you in");
+    expect(root.querySelectorAll("input[type=email]")).toHaveLength(1);
+    expect(root.querySelectorAll("input[type=password]")).toHaveLength(1);
+    expect(root.querySelectorAll(".app")).toHaveLength(0);
+  });
+
+  it("switches the sign-in screen to account creation", function () {
+    setState({ uid: null, auth: { mode: "signup", email: "", password: "", error: "", busy: false } });
+    render();
+    expect(root.textContent).toContain("Create account");
+    expect(root.querySelector("input[type=password]").getAttribute("autocomplete")).toBe("new-password");
   });
 
   it("offers a retry button on the slow-load path", function () {
@@ -89,6 +99,63 @@ describe("render — the recipe grid", function () {
   });
 });
 
+describe("render — access", function () {
+  function profile(over) {
+    var p = { id: "mock-user-alex", email: "alex@example.com", name: "Alex Moreau", role: "patient", status: "approved", isAdmin: false, joinedAt: 1 };
+    Object.keys(over || {}).forEach(function (k) { p[k] = over[k]; });
+    return p;
+  }
+
+  it("shows the waiting screen, and no recipes, while pending", function () {
+    setState({ recipes: SEED_RECIPES, myProfile: profile({ status: "pending" }) });
+    render();
+    expect(root.textContent).toContain("Waiting for approval");
+    expect(root.querySelectorAll(".app")).toHaveLength(0);
+    expect(root.querySelectorAll(".card")).toHaveLength(0);
+  });
+
+  it("shows the no-access screen when declined", function () {
+    setState({ recipes: SEED_RECIPES, myProfile: profile({ status: "rejected" }) });
+    render();
+    expect(root.textContent).toContain("No access");
+    expect(root.querySelectorAll(".card")).toHaveLength(0);
+  });
+
+  it("shows admins the members button with the number of open requests", function () {
+    setState({
+      myProfile: profile({ isAdmin: true }),
+      members: {
+        "mock-user-alex": profile({ isAdmin: true }),
+        "u-new": { id: "u-new", email: "n@x.org", name: "New", role: "member", status: "pending", isAdmin: false, joinedAt: 5 }
+      }
+    });
+    render();
+    expect(root.querySelectorAll(".members-btn")).toHaveLength(1);
+    expect(root.querySelector(".members-btn .icon-badge").textContent).toBe("1");
+  });
+
+  it("does not show the members button to non-admins", function () {
+    setState({ members: { "u-new": { id: "u-new", name: "New", role: "member", status: "pending" } } });
+    render();
+    expect(root.querySelectorAll(".members-btn")).toHaveLength(0);
+  });
+
+  it("lists pending people with approve and decline in the members panel", function () {
+    setState({
+      myProfile: profile({ isAdmin: true }),
+      members: {
+        "mock-user-alex": profile({ isAdmin: true }),
+        "u-new": { id: "u-new", email: "n@x.org", name: "New Person", role: "member", status: "pending", isAdmin: false, joinedAt: 5 }
+      },
+      modal: { type: "members", error: "" }
+    });
+    render();
+    expect(root.textContent).toContain("New Person");
+    expect(root.textContent).toContain("Let in");
+    expect(root.textContent).toContain("Decline");
+  });
+});
+
 describe("render — notification bell", function () {
   var fresh = { id: "fresh", title: "New soup", phases: ["remission"], tags: [], ingredients: [], addedBy: "mock-user-sam", addedByName: "Sam", createdAt: 10 };
 
@@ -96,18 +163,18 @@ describe("render — notification bell", function () {
     setState({ recipes: [fresh] });
     render();
     expect(root.querySelectorAll(".bell")).toHaveLength(1);
-    expect(root.querySelector(".bell-badge").textContent).toBe("1");
+    expect(root.querySelector(".bell .icon-badge").textContent).toBe("1");
   });
 
   it("shows the bell without a badge when nothing is pending", function () {
     setState({ recipes: [fresh], ratings: [{ id: "rt", recipeId: "fresh", uid: "mock-user-alex", stars: 4, tolerance: "good" }] });
     render();
     expect(root.querySelectorAll(".bell")).toHaveLength(1);
-    expect(root.querySelectorAll(".bell-badge")).toHaveLength(0);
+    expect(root.querySelectorAll(".bell .icon-badge")).toHaveLength(0);
   });
 
   it("does not show the bell to members", function () {
-    setState({ recipes: [fresh], myProfile: { name: "Sam Moreau", role: "member", joinedAt: 1 } });
+    setState({ recipes: [fresh], myProfile: { name: "Sam Moreau", role: "member", status: "approved", joinedAt: 1 } });
     render();
     expect(root.querySelectorAll(".bell")).toHaveLength(0);
   });

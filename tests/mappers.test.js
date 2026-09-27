@@ -11,10 +11,16 @@ import { mapMember, mapRecipe, mapRating } from "../src/backend/mappers.js";
 describe("mapMember", function () {
   it("renames the snake_case columns", function () {
     expect(mapMember({
-      id: "u1", name: "Alex", role: "patient", joined_at: 1700000000000, last_phase: "moderate"
+      id: "u1", email: "a@x.org", name: "Alex", role: "patient", status: "approved", is_admin: true,
+      joined_at: 1700000000000, last_phase: "moderate"
     })).toEqual({
-      id: "u1", name: "Alex", role: "patient", joinedAt: 1700000000000, lastPhase: "moderate"
+      id: "u1", email: "a@x.org", name: "Alex", role: "patient", status: "approved", isAdmin: true,
+      joinedAt: 1700000000000, lastPhase: "moderate"
     });
+  });
+
+  it("turns a missing is_admin into false", function () {
+    expect(mapMember({ id: "u1", name: "Alex", role: "member", status: "pending" }).isAdmin).toBe(false);
   });
 
   it("passes a null last_phase through unchanged", function () {

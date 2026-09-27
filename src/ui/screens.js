@@ -1,9 +1,9 @@
-// Full-screen fallback states shown instead of the app: connecting,
-// connection failed, and (rarely) sign-in failed.
+// Full-screen states shown instead of the app: connecting, connection
+// failed, and the two "signed in but not let in" states.
 
 import { state } from "../state.js";
 import { el } from "../lib/dom.js";
-import { retryInit } from "../boot.js";
+import { retryInit, signOut } from "../boot.js";
 
 export function renderCapsMissing() {
   return el("div", { class: "center-screen" }, [
@@ -27,14 +27,30 @@ export function renderLoading() {
   return el("div", { class: "center-screen" }, [box]);
 }
 
-// Only shown if the automatic, silent sign-in itself failed — normally
-// nobody ever sees this screen.
-export function renderSignInFailed() {
+function signOutButton() {
+  return el("button", { class: "btn", style: "margin-top:16px;", attrs: { type: "button" }, text: "Sign out", on: { click: signOut } });
+}
+
+// Signed up, profile saved, not yet let in. Switches to the app by itself
+// the moment an admin approves (the members subscription delivers it).
+export function renderPending() {
   return el("div", { class: "center-screen" }, [
     el("div", { class: "box" }, [
-      el("h2", { text: "Couldn't sign you in" }),
-      el("p", { text: "This usually means \"Anonymous sign-ins\" isn't turned on for the Supabase project yet (Authentication → Sign In / Providers → Anonymous Sign-Ins)." }),
-      el("button", { class: "btn btn-primary", style: "margin-top:16px;", attrs: { type: "button" }, text: "Try again", on: { click: retryInit } })
+      el("h2", { text: "Waiting for approval" }),
+      el("p", { text: "Thanks, " + state.myProfile.name + ". An admin needs to let you in before you can see the recipe box. This page opens by itself once they have." }),
+      el("p", { class: "muted-small", text: "Signed in as " + state.myProfile.email }),
+      signOutButton()
+    ])
+  ]);
+}
+
+export function renderRejected() {
+  return el("div", { class: "center-screen" }, [
+    el("div", { class: "box" }, [
+      el("h2", { text: "No access" }),
+      el("p", { text: "An admin hasn't given this account access to the recipe box. If you think that's a mistake, ask them directly." }),
+      el("p", { class: "muted-small", text: "Signed in as " + state.myProfile.email }),
+      signOutButton()
     ])
   ]);
 }

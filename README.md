@@ -35,13 +35,15 @@ real recipe box. A badge in the corner shows when it is active.
 
 | URL | |
 | --- | --- |
-| `?mock` | Work as Alex — a *patient*, so the rating form is visible |
-| `?mock&user=sam` | Work as Sam — a *member*, so rating is hidden |
-| `?mock&user=nobody` | An unknown identity, which lands you in onboarding |
+| `?mock` | Start at the sign-in screen. Seeded accounts: `alex@`, `sam@`, `robin@`, `jordan@example.com`, password `password` |
+| `?mock&user=alex` | Signed in as Alex — an approved *patient* and the *admin* |
+| `?mock&user=sam` | Signed in as Sam — an approved *member*, so rating is hidden |
+| `?mock&user=jordan` | Signed in as Jordan — still *waiting for approval* |
+| `?mock&user=nobody` | An account with no profile yet, which lands you in onboarding |
 | `?mock&reset` | Wipe and reseed before starting |
 | `?mock&latency=800` | Slow every call down, to see the loading states |
 | `?mock&fail=connect` | Force the "Couldn't connect" screen |
-| `?mock&fail=auth` | Force the "Couldn't sign you in" screen |
+| `?mock&fail=auth` | Make every sign-in and sign-up fail |
 
 Open two tabs with different `user=` values to watch a rating appear in both
 at once — the mock emulates realtime through the `storage` event, the same
@@ -84,10 +86,12 @@ src/
     seed.js         Sample data for the mock
   lib/
     dom.js          el() element builder, initials()
-    recipes.js      Filtering, tag collection, rating maths (pure)
+    recipes.js      Filtering, tag collection, rating maths, recipes to rate (pure)
+    members.js      Approved / admin checks, member lists (pure)
   ui/
     app.js          render() — rebuilds the view from `state`
-    screens.js      Loading / connection-failed / sign-in-failed screens
+    screens.js      Loading / connection-failed / waiting / no-access screens
+    auth.js         Sign-in and create-account screen
     header.js       Sticky top bar
     filters.js      Phase dropdown, tag chips, search
     grid.js         Recipe grid, cards, empty state
@@ -95,6 +99,8 @@ src/
     onboarding.js   Name + role form
     add-recipe.js   Add-a-recipe form
     detail.js       Recipe detail + rating form
+    notifications.js  Recipes waiting for the patient's rating (the bell)
+    members.js      Admin panel: let people in, decline, remove access
 styles/             One stylesheet per concern; tokens.css must load first
 tests/
   index.html        Open in a browser to run the suite
@@ -102,6 +108,7 @@ tests/
   *.test.js         The tests themselves
 db/
   schema.sql        Supabase schema. Run once in the SQL Editor.
+  reset.sql         Deletes all tables, data and logins, before a fresh schema.sql
 docs/
   architecture.md   How the pieces fit together
 ```
@@ -111,14 +118,34 @@ docs/
 Supabase project: `https://akuqozjsbrayrveflksy.supabase.co`, configured in
 [src/config.js](src/config.js).
 
-Auth is **anonymous sign-in** — no email or password. The browser silently gets
-a session on first visit and reuses it afterwards; "signing in", from the
-person's point of view, is just the name + role step. This requires *Anonymous
-Sign-Ins* to be enabled under Supabase → Authentication → Sign In / Providers.
+Auth is **email + password**, and an account alone does not get you in:
 
-Before the app will work against a fresh project, run [db/schema.sql](db/schema.sql)
-once in the Supabase SQL Editor. It creates the three tables, their row-level
-security policies, and enables realtime on all of them.
+1. Someone creates an account and enters their name and role.
+2. That makes a `pending` member. They see a "waiting for approval" screen and
+   no data — the database itself returns nothing to them.
+3. An **admin** lets them in (or declines) from the members button in the
+   header. The waiting screen switches to the app by itself.
+
+Admins can also take access away again later. Everything is enforced by
+row-level security and the `set_member_status()` function in
+[db/schema.sql](db/schema.sql), not only by the UI.
+
+### Setting up a project
+
+1. **Supabase → Authentication → Sign In / Providers → Email:** enabled, with
+   **Confirm email switched off**. The admin approval is the check; Supabase's
+   built-in mailer does not deliver to arbitrary addresses on the free plan, so
+   confirmation mails would never arrive.
+2. **Same page → Anonymous Sign-Ins:** switched **off**. The app no longer uses them.
+3. **SQL Editor:** run [db/schema.sql](db/schema.sql). On a project that already
+   has the tables, run [db/reset.sql](db/reset.sql) first — it **deletes all
+   recipes, ratings, members and logins**.
+4. **The first admin:** create your own account in the app, then run the snippet
+   at the end of `schema.sql` with your email. Further admins the same way.
+
+"Forgot password" is not built in: it needs a mail provider (custom SMTP in
+Supabase). Until then an admin can set a new password for someone under
+Authentication → Users.
 
 The key in `config.js` is the **publishable** key and is safe to commit — every
 table is protected by row-level security. Never put a service-role key in `src/`.

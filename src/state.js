@@ -9,12 +9,13 @@ export var state = {
   capsMissing: false,
   slowLoad: false,
   uid: null,
-  myProfile: null,       // {name, role}
+  myProfile: null,       // {id, email, name, role, status, isAdmin, joinedAt}
+  auth: { mode: "signin", email: "", password: "", error: "", busy: false },
   members: {},           // uid -> {name, role}
   recipes: [],           // [{id, ...data}]
   ratings: [],           // [{id, recipeId, uid, name, stars, tolerance, comment}]
   activePhase: null,
   activeTags: {},        // tag -> true
   search: "",
-  modal: null            // {type: 'onboarding'|'add'|'detail'|'notifications', ...}
+  modal: null            // {type: 'onboarding'|'add'|'detail'|'notifications'|'members', ...}
 };

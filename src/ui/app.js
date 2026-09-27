@@ -4,17 +4,32 @@
 
 import { root, state } from "../state.js";
 import { el } from "../lib/dom.js";
-import { renderCapsMissing, renderLoading, renderSignInFailed } from "./screens.js";
+import { isApproved } from "../lib/members.js";
+import { renderCapsMissing, renderLoading, renderPending, renderRejected } from "./screens.js";
+import { renderAuth } from "./auth.js";
 import { renderHeader } from "./header.js";
 import { renderPhaseDropdown, renderFiltersRow, renderSearch } from "./filters.js";
 import { renderGrid } from "./grid.js";
-import { renderModal, openOnboarding } from "./modal.js";
+import { renderModal } from "./modal.js";
 
 export function render() {
   root.innerHTML = "";
   if (state.capsMissing) { root.appendChild(renderCapsMissing()); return; }
   if (!state.ready) { root.appendChild(renderLoading()); return; }
-  if (!state.uid) { root.appendChild(renderSignInFailed()); return; }
+  if (!state.uid) { root.appendChild(renderAuth()); return; }
+
+  // Signed in but no members row yet: name + role first. Set the modal
+  // directly rather than via openOnboarding(), which would call render()
+  // straight back.
+  if (!state.myProfile) {
+    if (!(state.modal && state.modal.type === "onboarding")) {
+      state.modal = { type: "onboarding", name: "", role: "", error: "" };
+    }
+    root.appendChild(renderModal());
+    return;
+  }
+  if (state.myProfile.status === "rejected") { root.appendChild(renderRejected()); return; }
+  if (!isApproved()) { root.appendChild(renderPending()); return; }
 
   var app = el("div", { class: "app" });
   app.appendChild(renderHeader());
@@ -26,12 +41,6 @@ export function render() {
 
   if (state.modal) {
     root.appendChild(renderModal());
-  }
-
-  // openOnboarding() calls render() again; only open it if it isn't already
-  // open, or the two recurse forever.
-  if (!state.myProfile && !(state.modal && state.modal.type === "onboarding")) {
-    openOnboarding(null);
   }
 }
 

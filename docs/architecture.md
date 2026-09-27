@@ -50,9 +50,13 @@ knows about tables, columns and snake_case. It exposes:
 
 ```
 connect()                          -> Promise<{ ok }>
-getUid()                           -> Promise<string | null>
+getUid()                           -> Promise<string | null>   (null = signed out)
+signUp | signIn(email, password)   -> Promise<{ uid } | { error }>
+signOut()                          -> Promise<void>
 fetchProfile(uid)                  -> Promise<Object | null>
-saveProfile(uid, profile)          -> Promise<void>
+createProfile(uid, profile)        -> Promise<void>   (new pending member)
+saveProfile(uid, profile)          -> Promise<void>   (name + role only)
+setMemberStatus(uid, status)       -> Promise<void>   (admins only)
 onMembers | onRecipes | onRatings  -> unsubscribe();  cb(Array)
 addRecipe(data)                    -> Promise<void>
 upsertRating(recipeId, uid, data)  -> Promise<void>
@@ -70,12 +74,18 @@ Realtime is deliberately coarse: `liveTable()` re-`SELECT`s the whole table on
 any change notification. The dataset is one family's recipe box, so this is
 simpler than reconciling individual row deltas and fast enough.
 
+Every write rejects on failure. supabase-js resolves refused queries with
+`{ error }` instead of throwing, so `supabase.js` checks each result — without
+that, a write refused by row-level security looks like a success to the UI.
+
 `mock.js` is the proof that the boundary holds — a second implementation of
-the same nine methods backed by `localStorage`, used for local development.
+the same methods backed by `localStorage`, used for local development.
 It emulates realtime with an in-tab listener list plus the `storage` event for
 cross-tab updates. It is *not* a fidelity test of Postgres: it has no
 row-level security, so writes the real database would reject succeed against
-the mock.
+the mock. It does mirror the few rules the UI depends on — new members start
+pending, profile edits touch only name and role, and only an approved admin
+may change someone else's status.
 
 ## Startup sequence
 
@@ -83,13 +93,16 @@ the mock.
 2. `init()` starts a 12s watchdog that flips `state.slowLoad` for a "taking
    longer than expected" message plus a retry button.
 3. `Backend.connect()`; on failure, `state.capsMissing` → "Couldn't connect".
-4. `Backend.getUid()` reuses or creates an anonymous session. `null` means
-   anonymous sign-ins are disabled on the project → the sign-in-failed screen.
-5. `afterSignedIn()` loads the profile and last-used phase filter, then
-   subscribes to the three tables (guarded by `subscribed` so a retry does not
-   double-subscribe).
-6. If there is still no profile, `render()` forces the onboarding modal open
-   and it cannot be dismissed.
+4. `Backend.getUid()` restores a stored session, verified with the server.
+   `null` means signed out → the sign-in / create-account screen (`ui/auth.js`),
+   which calls `afterSignedIn()` on success.
+5. `afterSignedIn()` loads the profile and last-used phase filter, then calls
+   `syncSubscriptions()`: members right away, recipes and ratings only once
+   the profile is approved (see Access below). Flags guard against a retry
+   double-subscribing; `signOut()` tears everything down and resets `state`.
+6. `render()` then routes on the profile: none yet → the onboarding modal,
+   which cannot be dismissed; `pending` → the waiting screen; `rejected` → the
+   no-access screen; `approved` → the app.
 
 ## Circular imports
 
@@ -126,12 +139,32 @@ Tests run against the same `state` singleton the app uses, so each one resets
 it first. If the helpers in `lib/recipes.js` ever take parameters instead of
 reading the singleton, these tests get shorter.
 
+## Access
+
+A members row carries a `status` — `pending`, `approved` or `rejected` — and
+an `is_admin` flag. Signing up only ever creates a pending, non-admin row; the
+insert policy rejects anything else, and the column grants leave `status` and
+`is_admin` out of what a member may update. The one way to change them is
+`set_member_status()`, a `security definer` function that checks the caller is
+an approved admin and not acting on themselves. The first admin is set by hand
+in the SQL Editor.
+
+Every read and write on `recipes` and `ratings` requires `is_approved()`, so a
+pending or declined account gets nothing from the database, whatever the
+client does. The UI mirrors this (`lib/members.js`), but it is not the
+protection.
+
+A pending member can read their own members row, which is how the waiting
+screen notices approval: the realtime update arrives on the members
+subscription, `syncSubscriptions()` then subscribes to recipes and ratings,
+and `render()` swaps in the app.
+
 ## Roles
 
-`member` and `patient` are stored on the member row. Only `patient` sees the
-rating form — the app states this in a banner rather than hiding it silently.
-This is a UI convention, not a security boundary: the RLS policy in
-`db/schema.sql` lets any authenticated user insert their own rating.
+`member` and `patient` are stored on the member row, independently of
+admin. Only `patient` sees the rating form — the app states this in a banner
+rather than hiding it silently. This is a UI convention, not a security
+boundary: the RLS policies let any approved member insert their own rating.
 
 Patients also get a bell in the header whose badge counts recipes waiting for
 their rating (`pendingRatings()` in `lib/recipes.js`): added by someone else,

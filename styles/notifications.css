@@ -1,4 +1,4 @@
-/* Notifications panel: the list of new recipes waiting for the patient's rating. */
+/* Notifications panel (new recipes to rate) and the admin members panel. */
 
 .notif-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .notif-item {
@@ -17,3 +17,17 @@
 .notif-item .title { font-family: var(--serif); font-weight: 600; font-size: 17px; }
 .notif-item .meta { font-size: 13px; color: var(--ink-faint); }
 .notif-empty { color: var(--ink-faint); font-size: 14px; }
+
+.member-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.member-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+.member-who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.member-who .name { font-weight: 600; font-size: 14.5px; }
+.member-who .meta { font-size: 12.5px; color: var(--ink-faint); overflow-wrap: anywhere; }
+.member-actions { display: flex; gap: 6px; flex: none; }
+.member-you { font-size: 12.5px; color: var(--ink-faint); }

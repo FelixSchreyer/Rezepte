@@ -1,8 +1,10 @@
-// First-run (and later "Your details") form: name + role.
+// First-run (and later "Your details") form: name + role. On first run it
+// creates the pending members row that an admin then approves.
 
 import { state } from "../state.js";
 import { el } from "../lib/dom.js";
 import { Backend } from "../backend/index.js";
+import { signOut } from "../boot.js";
 import { closeModal, renderModalInPlace } from "./modal.js";
 
 export function renderOnboardingForm(m) {
@@ -14,7 +16,7 @@ export function renderOnboardingForm(m) {
   ]);
   wrap.appendChild(head);
   if (!state.myProfile) {
-    wrap.appendChild(el("p", { style: "color:var(--ink-soft); font-size:14px; margin-top:-8px;", text: "Tell us who's cooking, so ratings and recipes carry a name." }));
+    wrap.appendChild(el("p", { style: "color:var(--ink-soft); font-size:14px; margin-top:-8px;", text: "Tell us who's cooking. An admin sees this when deciding to let you in." }));
   }
 
   var nameField = el("label", { class: "field" }, [
@@ -49,8 +51,12 @@ export function renderOnboardingForm(m) {
   wrap.appendChild(el("button", {
     class: "btn btn-primary btn-block",
     attrs: { type: "button" },
-    text: state.myProfile ? "Save changes" : "Start cooking",
+    text: state.myProfile ? "Save changes" : "Request access",
     on: { click: function(){ submitOnboarding(m); } }
+  }));
+  wrap.appendChild(el("button", {
+    class: "btn btn-ghost btn-block", style: "margin-top:8px;",
+    attrs: { type: "button" }, text: "Sign out", on: { click: signOut }
   }));
   return wrap;
 }
@@ -60,9 +66,16 @@ export function submitOnboarding(m) {
   if (!name) { m.error = "Please enter a name."; renderModalInPlace(); return; }
   if (!m.role) { m.error = "Please choose a role."; renderModalInPlace(); return; }
   m.error = "";
-  var profile = { name: name, role: m.role, joinedAt: (state.myProfile && state.myProfile.joinedAt) || Date.now() };
-  Backend.saveProfile(state.uid, profile).then(function(){
-    state.myProfile = profile;
+  var existing = state.myProfile;
+  var save = existing
+    ? Backend.saveProfile(state.uid, { name: name, role: m.role })
+    : Backend.createProfile(state.uid, { name: name, role: m.role, joinedAt: Date.now() });
+  save.then(function(){
+    return Backend.fetchProfile(state.uid);
+  }).then(function(profile){
+    // A fresh row normally arrives through the members subscription too;
+    // fetching it here means the pending screen does not wait on realtime.
+    if (profile) state.myProfile = profile;
     closeModal();
   }).catch(function(){
     m.error = "Couldn't save — check your connection and try again.";

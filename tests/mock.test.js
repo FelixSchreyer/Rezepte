@@ -2,8 +2,9 @@
 //
 // The mock is only useful if it behaves like supabase.js, so these assert the
 // contract rather than the implementation: promises everywhere, camelCase
-// objects out, and the unique (recipe_id, uid) rule that db/schema.sql
-// enforces in Postgres but the mock has to enforce by hand.
+// objects out, and the rules db/schema.sql enforces in Postgres but the mock
+// has to enforce by hand — unique (recipe_id, uid), new members start
+// pending, and only admins may change someone's status.
 //
 // The suite writes to the same localStorage key the mock uses, so it snapshots
 // and restores it — running the tests will not wipe mock data you were
@@ -11,9 +12,9 @@
 
 import { describe, it, expect, beforeAll, afterAll } from "./harness.js";
 import { MockBackend } from "../src/backend/mock.js";
-import { SEED_RECIPES } from "../src/backend/seed.js";
+import { SEED_RECIPES, SEED_PASSWORD } from "../src/backend/seed.js";
 
-var STORE_KEY = "gut-and-grain-mock-v1";
+var STORE_KEY = "gut-and-grain-mock-v2";
 var ALEX = "mock-user-alex";
 var saved = null;
 
@@ -32,47 +33,120 @@ describe("MockBackend — session", function () {
     expect(res.ok).toBe(true);
   });
 
-  it("returns a stable uid", async function () {
-    var a = await MockBackend.getUid();
-    var b = await MockBackend.getUid();
-    expect(a).toBe(b);
+  it("starts signed out", async function () {
+    expect(await MockBackend.getUid()).toBeNull();
   });
 
-  it("defaults to the seeded patient, so the rating form is reachable", async function () {
-    var uid = await MockBackend.getUid();
-    var profile = await MockBackend.fetchProfile(uid);
-    expect(profile.role).toBe("patient");
+  it("signs in a seeded account with the right password", async function () {
+    var res = await MockBackend.signIn("alex@example.com", SEED_PASSWORD);
+    expect(res.uid).toBe(ALEX);
+    expect(await MockBackend.getUid()).toBe(ALEX);
   });
 
-  it("returns null for an identity with no profile", async function () {
-    expect(await MockBackend.fetchProfile("mock-user-nobody")).toBeNull();
+  it("ignores case and surrounding spaces in the email", async function () {
+    var res = await MockBackend.signIn("  Alex@Example.com ", SEED_PASSWORD);
+    expect(res.uid).toBe(ALEX);
+  });
+
+  it("refuses a wrong password", async function () {
+    await MockBackend.signOut();
+    var res = await MockBackend.signIn("alex@example.com", "nope");
+    expect(res.error).toBe("invalid");
+    expect(await MockBackend.getUid()).toBeNull();
+  });
+
+  it("signs out", async function () {
+    await MockBackend.signIn("alex@example.com", SEED_PASSWORD);
+    await MockBackend.signOut();
+    expect(await MockBackend.getUid()).toBeNull();
+  });
+
+  it("creates an account and signs straight into it", async function () {
+    var res = await MockBackend.signUp("new@example.com", "secret1");
+    expect(typeof res.uid).toBe("string");
+    expect(await MockBackend.getUid()).toBe(res.uid);
+  });
+
+  it("refuses a second account for the same email", async function () {
+    expect((await MockBackend.signUp("alex@example.com", "secret1")).error).toBe("exists");
+  });
+
+  it("refuses a password shorter than 6 characters", async function () {
+    expect((await MockBackend.signUp("short@example.com", "12345")).error).toBe("weak");
   });
 });
 
 describe("MockBackend — profiles", function () {
   beforeAll(reset);
 
-  it("saves a new profile and reads it back", async function () {
-    await MockBackend.saveProfile("mock-user-new", { name: "Jo", role: "member", joinedAt: 42 });
-    var p = await MockBackend.fetchProfile("mock-user-new");
-    expect(p).toEqual({ id: "mock-user-new", name: "Jo", role: "member", joinedAt: 42, lastPhase: null });
+  it("creates a new member as pending, never admin, with the account's email", async function () {
+    var uid = (await MockBackend.signUp("jo@example.com", "secret1")).uid;
+    await MockBackend.createProfile(uid, { name: "Jo", role: "member", joinedAt: 42 });
+    var p = await MockBackend.fetchProfile(uid);
+    expect(p).toEqual({
+      id: uid, email: "jo@example.com", name: "Jo", role: "member",
+      status: "pending", isAdmin: false, joinedAt: 42, lastPhase: null
+    });
   });
 
-  it("updates an existing profile in place rather than duplicating it", async function () {
-    await MockBackend.saveProfile("mock-user-new", { name: "Jo", role: "member", joinedAt: 42 });
-    await MockBackend.saveProfile("mock-user-new", { name: "Jo Rivera", role: "patient", joinedAt: 42 });
-    var p = await MockBackend.fetchProfile("mock-user-new");
-    expect(p.name).toBe("Jo Rivera");
-    expect(p.role).toBe("patient");
+  it("refuses to create a second row for the same person", async function () {
+    var failed = false;
+    try { await MockBackend.createProfile(ALEX, { name: "Alex", role: "patient", joinedAt: 1 }); }
+    catch (e) { failed = true; }
+    expect(failed).toBe(true);
   });
 
-  it("preserves lastPhase across a profile save", async function () {
-    // saveProfile writes only name/role/joinedAt in the real backend too, so
-    // an unrelated column must survive an edit from the onboarding form.
+  it("updates name and role but nothing else", async function () {
     await MockBackend.saveFilterState(ALEX, { lastPhase: "rebuilding" });
-    await MockBackend.saveProfile(ALEX, { name: "Alex Moreau", role: "patient", joinedAt: 1 });
+    await MockBackend.saveProfile(ALEX, { name: "Alex M.", role: "member", status: "approved", isAdmin: false });
     var p = await MockBackend.fetchProfile(ALEX);
+    expect(p.name).toBe("Alex M.");
+    expect(p.role).toBe("member");
+    expect(p.isAdmin).toBe(true);
     expect(p.lastPhase).toBe("rebuilding");
+  });
+});
+
+describe("MockBackend — member status", function () {
+  beforeAll(reset);
+
+  var JORDAN = "mock-user-jordan";
+  var SAM = "mock-user-sam";
+
+  async function attempt(fn) {
+    try { await fn(); return true; } catch (e) { return false; }
+  }
+
+  it("lets an admin approve a pending member", async function () {
+    await MockBackend.signIn("alex@example.com", SEED_PASSWORD);
+    await MockBackend.setMemberStatus(JORDAN, "approved");
+    expect((await MockBackend.fetchProfile(JORDAN)).status).toBe("approved");
+  });
+
+  it("lets an admin take access away again", async function () {
+    await MockBackend.signIn("alex@example.com", SEED_PASSWORD);
+    await MockBackend.setMemberStatus(JORDAN, "rejected");
+    expect((await MockBackend.fetchProfile(JORDAN)).status).toBe("rejected");
+  });
+
+  it("refuses a non-admin", async function () {
+    await MockBackend.signIn("sam@example.com", SEED_PASSWORD);
+    expect(await attempt(function () { return MockBackend.setMemberStatus(JORDAN, "approved"); })).toBe(false);
+  });
+
+  it("refuses an admin changing their own status", async function () {
+    await MockBackend.signIn("alex@example.com", SEED_PASSWORD);
+    expect(await attempt(function () { return MockBackend.setMemberStatus(ALEX, "rejected"); })).toBe(false);
+  });
+
+  it("refuses an unknown status", async function () {
+    await MockBackend.signIn("alex@example.com", SEED_PASSWORD);
+    expect(await attempt(function () { return MockBackend.setMemberStatus(SAM, "pending"); })).toBe(false);
+  });
+
+  it("refuses when signed out", async function () {
+    await MockBackend.signOut();
+    expect(await attempt(function () { return MockBackend.setMemberStatus(JORDAN, "approved"); })).toBe(false);
   });
 });
 

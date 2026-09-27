@@ -9,6 +9,7 @@ import { renderOnboardingForm } from "./onboarding.js";
 import { renderAddForm } from "./add-recipe.js";
 import { renderDetail } from "./detail.js";
 import { renderNotifications } from "./notifications.js";
+import { renderMembers } from "./members.js";
 
 export function closeModal() { state.modal = null; render(); }
 
@@ -28,6 +29,10 @@ export function openNotifications() {
   state.modal = { type: "notifications" };
   render();
 }
+export function openMembers() {
+  state.modal = { type: "members", error: "" };
+  render();
+}
 
 export function renderModal() {
   var m = state.modal;
@@ -38,6 +43,7 @@ export function renderModal() {
   else if (m.type === "add") panel.appendChild(renderAddForm(m));
   else if (m.type === "detail") panel.appendChild(renderDetail(m));
   else if (m.type === "notifications") panel.appendChild(renderNotifications());
+  else if (m.type === "members") panel.appendChild(renderMembers(m));
   overlay.appendChild(panel);
   return overlay;
 }

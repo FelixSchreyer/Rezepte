@@ -7,11 +7,17 @@
 var DAY = 24 * 60 * 60 * 1000;
 var T0 = Date.UTC(2026, 0, 12);
 
+// Alex is an approved patient *and* the admin; Jordan is waiting for approval,
+// so the admin panel has something to act on.
 export var SEED_MEMBERS = [
-  { id: "mock-user-alex",  name: "Alex Moreau",  role: "patient", joinedAt: T0,           lastPhase: null },
-  { id: "mock-user-sam",   name: "Sam Moreau",   role: "member",  joinedAt: T0 + 1 * DAY, lastPhase: null },
-  { id: "mock-user-robin", name: "Robin Okafor", role: "member",  joinedAt: T0 + 3 * DAY, lastPhase: null }
+  { id: "mock-user-alex",   email: "alex@example.com",   name: "Alex Moreau",   role: "patient", status: "approved", isAdmin: true,  joinedAt: T0,            lastPhase: null },
+  { id: "mock-user-sam",    email: "sam@example.com",    name: "Sam Moreau",    role: "member",  status: "approved", isAdmin: false, joinedAt: T0 + 1 * DAY,  lastPhase: null },
+  { id: "mock-user-robin",  email: "robin@example.com",  name: "Robin Okafor",  role: "member",  status: "approved", isAdmin: false, joinedAt: T0 + 3 * DAY,  lastPhase: null },
+  { id: "mock-user-jordan", email: "jordan@example.com", name: "Jordan Lindqvist", role: "member", status: "pending", isAdmin: false, joinedAt: T0 + 20 * DAY, lastPhase: null }
 ];
+
+// Every seeded member can sign in with their email and this password.
+export var SEED_PASSWORD = "password";
 
 export var SEED_RECIPES = [
   {
@@ -156,7 +162,11 @@ export var SEED_RATINGS = [
 export function freshSeed() {
   var members = {};
   SEED_MEMBERS.forEach(function (m) { members[m.id] = JSON.parse(JSON.stringify(m)); });
+  var accounts = {};
+  SEED_MEMBERS.forEach(function (m) { accounts[m.email] = { uid: m.id, password: SEED_PASSWORD }; });
   return {
+    session: null,
+    accounts: accounts,
     members: members,
     recipes: JSON.parse(JSON.stringify(SEED_RECIPES)),
     ratings: JSON.parse(JSON.stringify(SEED_RATINGS))
