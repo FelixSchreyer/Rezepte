@@ -1,0 +1,30 @@
+/* Element resets, page shell, focus ring, screen-reader utility and animations. */
+
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+
+a { color: inherit; }
+button { font-family: inherit; }
+
+.app { max-width: 980px; margin: 0 auto; padding: 0 20px 80px; }
+
+.btn:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .overlay .panel { animation: slidein 0.22s ease-out; }
+}
+@keyframes slidein { from { transform: translateX(16px); opacity: 0; } to { transform: none; opacity: 1; } }

@@ -1,0 +1,36 @@
+/* Overlay and sliding panel that host every modal. */
+
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(20, 24, 15, 0.45);
+  display: none;
+  align-items: stretch; justify-content: flex-end;
+  z-index: 100;
+}
+.overlay.show { display: flex; }
+.panel {
+  background: var(--bg);
+  width: min(520px, 100%);
+  height: 100%;
+  overflow-y: auto;
+  padding: calc(20px + env(safe-area-inset-top, 0px)) 22px calc(32px + env(safe-area-inset-bottom, 0px));
+  box-shadow: -8px 0 24px rgba(0,0,0,0.12);
+}
+.panel.center {
+  margin: auto;
+  height: auto;
+  max-height: 90vh;
+  border-radius: var(--radius);
+  width: min(420px, 92vw);
+}
+.panel-head {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+  margin-bottom: 18px;
+}
+.panel-head h2 {
+  font-family: var(--serif); font-weight: 600; font-size: 24px; margin: 0;
+}
+.close-x {
+  border: none; background: transparent; font-size: 20px; cursor: pointer; color: var(--ink-faint);
+  line-height: 1; padding: 4px;
+}

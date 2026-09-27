@@ -1,0 +1,55 @@
+/* Design tokens: colour, type and radius custom properties, incl. dark-scheme overrides. */
+
+:root {
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+
+  --bg: #F1F3EC;
+  --surface: #FFFFFF;
+  --surface-sunk: #E7EBE1;
+  --ink: #23291F;
+  --ink-soft: #5B6455;
+  --ink-faint: #8A927E;
+  --line: #DCE1D3;
+  --accent: #4C6B4A;
+  --accent-ink: #FFFFFF;
+  --danger: #A6503A;
+
+  --phase-severe: #A6503A;
+  --phase-moderate: #C08A2E;
+  --phase-rebuilding: #93893F;
+  --phase-transition: #3E7D82;
+  --phase-remission: #4E8A54;
+
+  --radius: 10px;
+  --serif: "Fraunces", Georgia, serif;
+  --sans: "Public Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1A1D17;
+    --surface: #23271F;
+    --surface-sunk: #1F231B;
+    --ink: #ECEEE6;
+    --ink-soft: #ABB39C;
+    --ink-faint: #767F6C;
+    --line: #343A2B;
+    --accent: #8FB088;
+    --accent-ink: #16190F;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1A1D17;
+  --surface: #23271F;
+  --surface-sunk: #1F231B;
+  --ink: #ECEEE6;
+  --ink-soft: #ABB39C;
+  --ink-faint: #767F6C;
+  --line: #343A2B;
+  --accent: #8FB088;
+  --accent-ink: #16190F;
+}
+

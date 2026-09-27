@@ -1,0 +1,36 @@
+/* Form fields, inputs, check pills and inline errors. */
+
+label.field { display: block; margin-bottom: 16px; }
+label.field .lbl {
+  display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--ink);
+}
+label.field .hint { font-weight: 400; color: var(--ink-faint); font-size: 12px; }
+input[type=text], input[type=number], textarea, select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 15px;
+  font-family: inherit;
+}
+textarea { resize: vertical; min-height: 84px; line-height: 1.4; }
+
+.check-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.check-pill {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 13px;
+  font-size: 13.5px;
+  cursor: pointer;
+  background: var(--surface);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.check-pill input { accent-color: var(--accent); }
+.check-pill[data-checked="true"] { background: var(--surface-sunk); border-color: var(--ink-faint); }
+
+.add-tag-row { display: flex; gap: 8px; margin-top: 8px; }
+.add-tag-row input { flex: 1; }
+
+.form-error { color: var(--danger); font-size: 13px; margin: -8px 0 14px; }
