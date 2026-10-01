@@ -15,7 +15,7 @@ import { attachSwipeBack } from "./navigation.js";
 export function closeModal() { state.modal = null; render(); }
 
 export function openAddRecipe() {
-  state.modal = { type: "add", title: "", phases: {}, tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", servings: "2", photoBlob: null, photoPreview: "", saving: false, error: "", freeText: "", scans: [], filling: false, filled: false, fillError: "" };
+  state.modal = { type: "add", title: "", phase: "", tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", servings: "2", photoBlob: null, photoPreview: "", saving: false, error: "", freeText: "", scans: [], filling: false, filled: false, fillError: "" };
   render();
 }
 export function openDetail(recipeId) {

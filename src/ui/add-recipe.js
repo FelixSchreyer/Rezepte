@@ -5,7 +5,7 @@
 import { PHASES } from "../config.js";
 import { state } from "../state.js";
 import { el } from "../lib/dom.js";
-import { allTags } from "../lib/recipes.js";
+import { allTags, recipePhases } from "../lib/recipes.js";
 import { Backend } from "../backend/index.js";
 import { closeModal, renderModalInPlace } from "./modal.js";
 import { photoPicker } from "./photo-picker.js";
@@ -32,36 +32,16 @@ export function renderAddForm(m) {
   wrap.appendChild(titleField);
 
   // Phases run strictest → most relaxed: a recipe fine in one phase is fine in
-  // every later one. Ticking a phase ticks all later phases; unticking one
-  // unticks all earlier phases, so the selection is always "from X onwards".
-  var phaseField = el("label", { class: "field" }, [ el("span", { class: "lbl" }, [document.createTextNode("Suited from phase "), el("span", { class: "hint", text: "— required, pick the earliest; later phases are included" })]) ]);
-  var phaseGrid = el("div", { class: "check-grid" });
-  var phasePills = [];
-  function syncPhasePills() {
-    phasePills.forEach(function(pill, i){
-      var on = !!m.phases[PHASES[i].id];
-      pill.querySelector("input").checked = on;
-      pill.dataset.checked = String(on);
-    });
-  }
-  PHASES.forEach(function(p, idx){
-    var pill = el("label", { class: "check-pill" }, [
-      el("input", { attrs: { type: "checkbox" } }),
-      document.createTextNode(p.label)
-    ]);
-    var input = pill.querySelector("input");
-    input.addEventListener("change", function(){
-      PHASES.forEach(function(q, j){
-        if (input.checked && j >= idx) m.phases[q.id] = true;
-        if (!input.checked && j <= idx) m.phases[q.id] = false;
-      });
-      syncPhasePills();
-    });
-    phasePills.push(pill);
-    phaseGrid.appendChild(pill);
+  // every later one, so the form only asks for the earliest.
+  var phaseField = el("label", { class: "field" }, [ el("span", { class: "lbl" }, [document.createTextNode("Suitable from phase "), el("span", { class: "hint", text: "— required, all later phases are included" })]) ]);
+  var phaseSelect = el("select");
+  phaseSelect.appendChild(el("option", { text: "Pick the earliest phase…", attrs: { value: "", disabled: "" } }));
+  PHASES.forEach(function(p){
+    phaseSelect.appendChild(el("option", { text: p.label, attrs: { value: p.id } }));
   });
-  syncPhasePills();
-  phaseField.appendChild(phaseGrid);
+  phaseSelect.value = m.phase;
+  phaseSelect.addEventListener("change", function(e){ m.phase = e.target.value; });
+  phaseField.appendChild(phaseSelect);
   wrap.appendChild(phaseField);
 
   var tagField = el("label", { class: "field" }, [ el("span", { class: "lbl" }, [document.createTextNode("Tags "), el("span", { class: "hint", text: "— required, pick or add" })]) ]);
@@ -175,7 +155,7 @@ function renderQuickFill(m) {
   if (m.scans.length) box.appendChild(renderScans(m));
 
   if (m.fillError) box.appendChild(el("div", { class: "form-error", style: "margin:8px 0 0;", text: m.fillError }));
-  if (m.filled && !m.fillError) box.appendChild(el("div", { class: "quick-fill-done", text: "Filled in below — check everything, then pick the phases yourself." }));
+  if (m.filled && !m.fillError) box.appendChild(el("div", { class: "quick-fill-done", text: "Filled in below — check everything, then pick the phase yourself." }));
 
   box.appendChild(el("button", {
     class: "btn btn-sm", style: "margin-top:10px;",
@@ -264,12 +244,12 @@ function renderPhotoField(m) {
 
 export function submitAddRecipe(m) {
   var title = m.title.trim();
-  var phases = Object.keys(m.phases).filter(function(k){ return m.phases[k]; });
+  var phases = m.phase ? recipePhases({ phases: [m.phase] }) : [];
   var tags = Object.keys(m.tags).filter(function(k){ return m.tags[k]; });
   var ingredients = m.ingredients.split("\n").map(function(s){ return s.trim(); }).filter(Boolean);
 
   if (!title) { m.error = "Please give the recipe a title."; renderModalInPlace(); return; }
-  if (!phases.length) { m.error = "Pick at least one phase."; renderModalInPlace(); return; }
+  if (!phases.length) { m.error = "Pick the earliest phase it suits."; renderModalInPlace(); return; }
   if (!tags.length) { m.error = "Pick or add at least one tag."; renderModalInPlace(); return; }
   if (!ingredients.length) { m.error = "List at least one ingredient."; renderModalInPlace(); return; }
 
