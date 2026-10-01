@@ -1,8 +1,30 @@
 // Derived views over `state` — filtering, tag collection and rating maths.
 // Pure read-only helpers: nothing here mutates state or touches the DOM.
 
-import { BASE_TAGS } from "../config.js";
+import { BASE_TAGS, PHASES } from "../config.js";
 import { state } from "../state.js";
+
+// Phases are ordered strictest → most relaxed, so a recipe that works in one
+// phase also works in every later one. A recipe's effective phases are its
+// earliest stored phase and everything after it — this also covers older
+// recipes saved before that rule, which may list only some later phases.
+function phaseIndex(id) {
+  for (var i = 0; i < PHASES.length; i++) if (PHASES[i].id === id) return i;
+  return -1;
+}
+
+export function recipePhases(r) {
+  var earliest = PHASES.length;
+  (r.phases || []).forEach(function(pid){
+    var i = phaseIndex(pid);
+    if (i !== -1 && i < earliest) earliest = i;
+  });
+  return PHASES.slice(earliest).map(function(p){ return p.id; });
+}
+
+export function suitsPhase(r, phaseId) {
+  return recipePhases(r).indexOf(phaseId) !== -1;
+}
 
 export function allTags() {
   var set = {};
@@ -46,7 +68,7 @@ export function filteredRecipes() {
   var tagFilters = Object.keys(state.activeTags).filter(function(t){ return state.activeTags[t]; });
   var q = state.search.trim().toLowerCase();
   return state.recipes.filter(function(r){
-    if (state.activePhase && (r.phases||[]).indexOf(state.activePhase) === -1) return false;
+    if (state.activePhase && !suitsPhase(r, state.activePhase)) return false;
     for (var i = 0; i < tagFilters.length; i++) {
       if ((r.tags||[]).indexOf(tagFilters[i]) === -1) return false;
     }

@@ -3,7 +3,7 @@
 import { PHASE_MAP, TOLERANCE, TOL_MAP } from "../config.js";
 import { state } from "../state.js";
 import { el } from "../lib/dom.js";
-import { ratingsFor, ratingSummary, starString } from "../lib/recipes.js";
+import { ratingsFor, ratingSummary, starString, recipePhases } from "../lib/recipes.js";
 import { Backend } from "../backend/index.js";
 import { closeModal, renderModalInPlace } from "./modal.js";
 import { photoPicker } from "./photo-picker.js";
@@ -29,7 +29,7 @@ export function renderDetail(m) {
   wrap.appendChild(renderDetailPhoto(m, r));
 
   var dots = el("div", { class: "detail-phase-dots" });
-  (r.phases||[]).forEach(function(pid){
+  recipePhases(r).forEach(function(pid){
     var p = PHASE_MAP[pid];
     if (!p) return;
     dots.appendChild(el("span", { style: "background:" + p.color, text: p.label }));

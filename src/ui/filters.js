@@ -4,7 +4,7 @@
 import { PHASES, PHASE_MAP } from "../config.js";
 import { state } from "../state.js";
 import { el } from "../lib/dom.js";
-import { allTags } from "../lib/recipes.js";
+import { allTags, suitsPhase } from "../lib/recipes.js";
 import { Backend } from "../backend/index.js";
 import { render, renderGridInPlace } from "./app.js";
 
@@ -25,7 +25,7 @@ export function renderPhaseDropdown() {
   var allCount = state.recipes.length;
   select.appendChild(el("option", { text: "All phases (" + allCount + ")", attrs: { value: "" } }));
   PHASES.forEach(function(p){
-    var count = state.recipes.filter(function(r){ return (r.phases||[]).indexOf(p.id) !== -1; }).length;
+    var count = state.recipes.filter(function(r){ return suitsPhase(r, p.id); }).length;
     select.appendChild(el("option", { text: p.label + " (" + count + ")", attrs: { value: p.id } }));
   });
   select.value = state.activePhase || "";

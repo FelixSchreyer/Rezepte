@@ -31,22 +31,36 @@ export function renderAddForm(m) {
   titleField.appendChild(titleInput);
   wrap.appendChild(titleField);
 
-  var phaseField = el("label", { class: "field" }, [ el("span", { class: "lbl" }, [document.createTextNode("Suited to phase "), el("span", { class: "hint", text: "— required, pick one or more" })]) ]);
+  // Phases run strictest → most relaxed: a recipe fine in one phase is fine in
+  // every later one. Ticking a phase ticks all later phases; unticking one
+  // unticks all earlier phases, so the selection is always "from X onwards".
+  var phaseField = el("label", { class: "field" }, [ el("span", { class: "lbl" }, [document.createTextNode("Suited from phase "), el("span", { class: "hint", text: "— required, pick the earliest; later phases are included" })]) ]);
   var phaseGrid = el("div", { class: "check-grid" });
-  PHASES.forEach(function(p){
+  var phasePills = [];
+  function syncPhasePills() {
+    phasePills.forEach(function(pill, i){
+      var on = !!m.phases[PHASES[i].id];
+      pill.querySelector("input").checked = on;
+      pill.dataset.checked = String(on);
+    });
+  }
+  PHASES.forEach(function(p, idx){
     var pill = el("label", { class: "check-pill" }, [
       el("input", { attrs: { type: "checkbox" } }),
       document.createTextNode(p.label)
     ]);
     var input = pill.querySelector("input");
-    input.checked = !!m.phases[p.id];
-    pill.dataset.checked = String(!!m.phases[p.id]);
     input.addEventListener("change", function(){
-      m.phases[p.id] = input.checked;
-      pill.dataset.checked = String(input.checked);
+      PHASES.forEach(function(q, j){
+        if (input.checked && j >= idx) m.phases[q.id] = true;
+        if (!input.checked && j <= idx) m.phases[q.id] = false;
+      });
+      syncPhasePills();
     });
+    phasePills.push(pill);
     phaseGrid.appendChild(pill);
   });
+  syncPhasePills();
   phaseField.appendChild(phaseGrid);
   wrap.appendChild(phaseField);
 

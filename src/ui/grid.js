@@ -3,7 +3,7 @@
 import { PHASES, PHASE_MAP, TOL_MAP } from "../config.js";
 import { state } from "../state.js";
 import { el } from "../lib/dom.js";
-import { filteredRecipes, ratingSummary, starString } from "../lib/recipes.js";
+import { filteredRecipes, ratingSummary, starString, recipePhases } from "../lib/recipes.js";
 import { openDetail } from "./modal.js";
 
 export function emptyCopy() {
@@ -36,7 +36,8 @@ export function renderGrid() {
 }
 
 export function renderCard(r) {
-  var primaryPhase = PHASE_MAP[(r.phases||[])[0]] || PHASES[4];
+  var phases = recipePhases(r);
+  var primaryPhase = PHASE_MAP[phases[0]] || PHASES[4];
   var card = el("button", {
     class: "card",
     attrs: { type: "button", style: "" },
@@ -45,7 +46,7 @@ export function renderCard(r) {
   });
 
   var dots = el("div", { class: "phase-dots" });
-  (r.phases || []).forEach(function(pid){
+  phases.forEach(function(pid){
     var p = PHASE_MAP[pid];
     if (!p) return;
     dots.appendChild(el("span", { style: "background:" + p.color, attrs: { title: p.label } }));
