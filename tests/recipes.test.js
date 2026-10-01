@@ -7,7 +7,7 @@
 
 import { describe, it, expect } from "./harness.js";
 import { state } from "../src/state.js";
-import { allTags, ratingsFor, ratingSummary, filteredRecipes, pendingRatings, starString } from "../src/lib/recipes.js";
+import { allTags, ratingsFor, ratingSummary, filteredRecipes, pendingRatings, starString, recipePhases, suitsPhase } from "../src/lib/recipes.js";
 
 function setState(patch) {
   state.recipes = [];
@@ -38,7 +38,7 @@ function rating(over) {
 describe("allTags", function () {
   it("returns the base tags when there are no recipes", function () {
     setState({});
-    expect(allTags()).toEqual(["Low-Carb", "Keto", "Gluten-free", "Lactose-free", "Low-FODMAP", "Low-fiber"]);
+    expect(allTags()).toEqual(["Low-Carb", "Gluten-free", "Lactose-free", "Breakfast", "Lunch", "Dinner"]);
   });
 
   it("includes custom tags introduced by recipes", function () {
@@ -110,6 +110,27 @@ describe("ratingSummary", function () {
   });
 });
 
+describe("recipePhases", function () {
+  it("runs from the earliest stored phase through every later one", function () {
+    expect(recipePhases({ phases: ["rebuilding"] })).toEqual(["rebuilding", "transition", "remission"]);
+  });
+
+  it("fills gaps in older recipes that list only some later phases", function () {
+    expect(recipePhases({ phases: ["remission", "moderate"] })).toEqual(["moderate", "rebuilding", "transition", "remission"]);
+  });
+
+  it("returns nothing for a recipe without (known) phases", function () {
+    expect(recipePhases({ phases: [] })).toEqual([]);
+    expect(recipePhases({ phases: ["unknown"] })).toEqual([]);
+    expect(recipePhases({})).toEqual([]);
+  });
+
+  it("counts a recipe as suiting later phases but not earlier ones", function () {
+    expect(suitsPhase({ phases: ["moderate"] }, "remission")).toBe(true);
+    expect(suitsPhase({ phases: ["moderate"] }, "severe")).toBe(false);
+  });
+});
+
 describe("filteredRecipes", function () {
   var congee = recipe({ id: "congee", title: "Rice congee", phases: ["severe", "moderate"], tags: ["Low-fiber", "Gluten-free"], ingredients: ["white rice", "chicken"], createdAt: 100 });
   var dal    = recipe({ id: "dal",    title: "Red lentil dal", phases: ["remission"], tags: ["Gluten-free"], ingredients: ["red lentils", "turmeric"], createdAt: 300 });
@@ -128,6 +149,11 @@ describe("filteredRecipes", function () {
   it("filters by phase", function () {
     setState({ recipes: [congee, dal, eggs], activePhase: "moderate" });
     expect(filteredRecipes().map(function (r) { return r.id; })).toEqual(["eggs", "congee"]);
+  });
+
+  it("includes recipes filed under an earlier phase", function () {
+    setState({ recipes: [congee, dal, eggs], activePhase: "remission" });
+    expect(filteredRecipes().map(function (r) { return r.id; })).toEqual(["dal", "eggs", "congee"]);
   });
 
   it("requires ALL active tags, not any", function () {

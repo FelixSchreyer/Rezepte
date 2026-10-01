@@ -83,10 +83,16 @@ describe("render — the recipe grid", function () {
   });
 
   it("narrows the grid to the active phase", function () {
+    setState({ recipes: SEED_RECIPES, activePhase: "severe" });
+    render();
+    var expected = SEED_RECIPES.filter(function (r) { return r.phases.indexOf("severe") !== -1; });
+    expect(root.querySelectorAll(".card")).toHaveLength(expected.length);
+  });
+
+  it("shows every recipe under the last phase, since earlier phases carry over", function () {
     setState({ recipes: SEED_RECIPES, activePhase: "remission" });
     render();
-    var expected = SEED_RECIPES.filter(function (r) { return r.phases.indexOf("remission") !== -1; });
-    expect(root.querySelectorAll(".card")).toHaveLength(expected.length);
+    expect(root.querySelectorAll(".card")).toHaveLength(SEED_RECIPES.length);
   });
 
   it("uses the phase-specific empty copy when a filter excludes everything", function () {
@@ -375,13 +381,22 @@ describe("render — modals", function () {
   });
 
   it("renders the add-recipe form", function () {
-    setState({ recipes: SEED_RECIPES, modal: { type: "add", title: "", phases: {}, tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", photoBlob: null, photoPreview: "", saving: false, error: "", freeText: "", scans: [], filling: false, filled: false, fillError: "" } });
+    setState({ recipes: SEED_RECIPES, modal: { type: "add", title: "", phase: "", tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", photoBlob: null, photoPreview: "", saving: false, error: "", freeText: "", scans: [], filling: false, filled: false, fillError: "" } });
     render();
     expect(root.textContent).toContain("Add a recipe");
   });
 
+  it("asks for the earliest phase with a dropdown, not one pill per phase", function () {
+    setState({ recipes: SEED_RECIPES, modal: { type: "add", title: "", phase: "", tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", photoBlob: null, photoPreview: "", saving: false, error: "", freeText: "", scans: [], filling: false, filled: false, fillError: "" } });
+    render();
+    var select = root.querySelector(".overlay select");
+    expect(select.options).toHaveLength(6);
+    expect(select.value).toBe("");
+    expect(root.textContent).toContain("Suitable from phase");
+  });
+
   it("offers the free-text quick fill above the form", function () {
-    setState({ recipes: SEED_RECIPES, modal: { type: "add", title: "", phases: {}, tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", photoBlob: null, photoPreview: "", saving: false, error: "", freeText: "", scans: [], filling: false, filled: false, fillError: "" } });
+    setState({ recipes: SEED_RECIPES, modal: { type: "add", title: "", phase: "", tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", photoBlob: null, photoPreview: "", saving: false, error: "", freeText: "", scans: [], filling: false, filled: false, fillError: "" } });
     render();
     expect(root.querySelectorAll(".quick-fill textarea")).toHaveLength(1);
     expect(root.textContent).toContain("Fill in the form");
@@ -391,7 +406,7 @@ describe("render — modals", function () {
   });
 
   it("puts \"Add a photo\" last, right before saving, styled as a field", function () {
-    setState({ recipes: SEED_RECIPES, modal: { type: "add", title: "", phases: {}, tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", photoBlob: null, photoPreview: "", saving: false, error: "", freeText: "", scans: [], filling: false, filled: false, fillError: "" } });
+    setState({ recipes: SEED_RECIPES, modal: { type: "add", title: "", phase: "", tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", photoBlob: null, photoPreview: "", saving: false, error: "", freeText: "", scans: [], filling: false, filled: false, fillError: "" } });
     render();
     var save = Array.from(root.querySelectorAll(".overlay button")).filter(function (b) { return b.textContent === "Save recipe"; })[0];
     var before = save.previousElementSibling;
@@ -402,7 +417,7 @@ describe("render — modals", function () {
 
   it("shows scanned pages as thumbnails and stops offering more after three", function () {
     var page = { blob: null, preview: "data:image/gif;base64,R0lGODlhAQABAAAAACw=" };
-    setState({ recipes: SEED_RECIPES, modal: { type: "add", title: "", phases: {}, tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", photoBlob: null, photoPreview: "", saving: false, error: "", freeText: "", scans: [page, page, page], filling: false, filled: false, fillError: "" } });
+    setState({ recipes: SEED_RECIPES, modal: { type: "add", title: "", phase: "", tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", photoBlob: null, photoPreview: "", saving: false, error: "", freeText: "", scans: [page, page, page], filling: false, filled: false, fillError: "" } });
     render();
     expect(root.querySelectorAll(".scan-thumb")).toHaveLength(3);
     expect(root.querySelectorAll(".quick-fill .photo-pick")).toHaveLength(0);

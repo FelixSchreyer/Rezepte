@@ -17,7 +17,7 @@ export var PHASES = [
 export var PHASE_MAP = {};
 PHASES.forEach(function(p){ PHASE_MAP[p.id] = p; });
 
-export var BASE_TAGS = ["Low-Carb", "Keto", "Gluten-free", "Lactose-free", "Low-FODMAP", "Low-fiber"];
+export var BASE_TAGS = ["Low-Carb", "Gluten-free", "Lactose-free", "Breakfast", "Lunch", "Dinner"];
 
 export var TOLERANCE = [
   { id: "good", label: "Well tolerated" },
