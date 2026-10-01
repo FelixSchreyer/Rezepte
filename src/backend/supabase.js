@@ -28,6 +28,8 @@ import { blobToBase64 } from "../lib/photos.js";
  *   onRecipes(cb)                -> unsubscribe();  cb(Array<{id, ...}>)
  *   onRatings(cb)                -> unsubscribe();  cb(Array<{id, ...}>)
  *   addRecipe(data)              -> Promise<void>
+ *   updateRecipe(recipeId, data) -> Promise<void>   (title, phases, tags, ingredients,
+ *                                   instructions, prepMinutes, servings)
  *   uploadPhoto(uid, blob)       -> Promise<path>   (a JPEG, already resized)
  *   photoUrls(paths)             -> Promise<{ path: url }>  (valid ~24h)
  *   setRecipePhoto(recipeId, path) -> Promise<void>
@@ -215,6 +217,19 @@ export const Backend = (function () {
         photo_path: data.photoPath || null,
         created_at: data.createdAt
       }));
+    },
+
+    // Only the recipe itself — who added it, and when, stays as it was.
+    updateRecipe: async function (recipeId, data) {
+      check(await sb.from("recipes").update({
+        title: data.title,
+        phases: data.phases,
+        tags: data.tags,
+        ingredients: data.ingredients,
+        instructions: data.instructions,
+        prep_minutes: data.prepMinutes,
+        servings: data.servings || 2
+      }).eq("id", recipeId));
     },
 
     // The folder must be the uploader's own id — the storage policy in

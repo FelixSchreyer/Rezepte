@@ -68,11 +68,49 @@ describe("render — screens", function () {
   });
 });
 
-describe("render — the recipe grid", function () {
-  it("renders one card per recipe", function () {
+describe("render — the recipe shelves", function () {
+  function allShelfCards() {
+    return root.querySelectorAll(".shelf")[0].querySelectorAll(".card");
+  }
+
+  it("opens with an \"All recipes\" shelf holding one card per recipe", function () {
     setState({ recipes: SEED_RECIPES });
     render();
-    expect(root.querySelectorAll(".card")).toHaveLength(SEED_RECIPES.length);
+    expect(root.querySelector(".shelf h2").textContent).toBe("All recipes");
+    expect(allShelfCards()).toHaveLength(SEED_RECIPES.length);
+  });
+
+  it("adds a shelf per tag that has recipes, and none for empty tags", function () {
+    var a = { id: "a", title: "Porridge", phases: ["severe"], tags: ["Breakfast", "Gluten-free"], ingredients: ["oats"], createdAt: 1 };
+    var b = { id: "b", title: "Soup", phases: ["severe"], tags: ["Gluten-free"], ingredients: ["leek"], createdAt: 2 };
+    setState({ recipes: [a, b] });
+    render();
+    var titles = Array.from(root.querySelectorAll(".shelf h2")).map(function (h) { return h.textContent; });
+    expect(titles).toEqual(["All recipes", "Gluten-free", "Breakfast"]);
+    expect(root.querySelectorAll(".shelf")[1].querySelectorAll(".card")).toHaveLength(2);
+    expect(root.querySelectorAll(".shelf")[2].querySelectorAll(".card")).toHaveLength(1);
+  });
+
+  it("switches to a plain results grid while searching or filtering by tag", function () {
+    setState({ recipes: SEED_RECIPES, search: "rice" });
+    render();
+    expect(root.querySelectorAll(".shelf")).toHaveLength(0);
+    expect(root.querySelectorAll(".recipes > .grid")).toHaveLength(1);
+
+    setState({ recipes: SEED_RECIPES, activeTags: { "Gluten-free": true } });
+    render();
+    expect(root.querySelectorAll(".shelf")).toHaveLength(0);
+    expect(root.querySelectorAll(".recipes > .grid")).toHaveLength(1);
+  });
+
+  it("opens a tag's results grid from its shelf's \"See all\"", function () {
+    setState({ recipes: SEED_RECIPES });
+    render();
+    root.querySelectorAll(".shelf")[1].querySelector(".shelf-more").click();
+    var tag = Object.keys(state.activeTags)[0];
+    expect(state.activeTags[tag]).toBe(true);
+    expect(root.querySelector(".tag-dropdown-label").textContent).toBe(tag);
+    expect(root.querySelectorAll(".shelf")).toHaveLength(0);
   });
 
   it("renders the empty state when there are no recipes", function () {
@@ -82,17 +120,17 @@ describe("render — the recipe grid", function () {
     expect(root.textContent).toContain("The recipe box is empty");
   });
 
-  it("narrows the grid to the active phase", function () {
+  it("narrows the shelves to the active phase", function () {
     setState({ recipes: SEED_RECIPES, activePhase: "severe" });
     render();
     var expected = SEED_RECIPES.filter(function (r) { return r.phases.indexOf("severe") !== -1; });
-    expect(root.querySelectorAll(".card")).toHaveLength(expected.length);
+    expect(allShelfCards()).toHaveLength(expected.length);
   });
 
   it("shows every recipe under the last phase, since earlier phases carry over", function () {
     setState({ recipes: SEED_RECIPES, activePhase: "remission" });
     render();
-    expect(root.querySelectorAll(".card")).toHaveLength(SEED_RECIPES.length);
+    expect(allShelfCards()).toHaveLength(SEED_RECIPES.length);
   });
 
   it("uses the phase-specific empty copy when a filter excludes everything", function () {
@@ -111,12 +149,12 @@ describe("render — the recipe grid", function () {
 });
 
 describe("render — filters and photos", function () {
-  it("stacks phase, tag filter, search and grid in that order", function () {
+  it("stacks phase, tag filter, search and recipes in that order", function () {
     setState({ recipes: SEED_RECIPES });
     render();
     var app = root.querySelector(".app");
     var order = Array.from(app.children).map(function (n) { return n.className.split(" ")[0]; });
-    expect(order).toEqual(["top", "phase-row", "phase-row", "search-wrap", "grid"]);
+    expect(order).toEqual(["top", "phase-row", "phase-row", "search-wrap", "recipes"]);
     expect(app.children[2].querySelectorAll(".tag-dropdown")).toHaveLength(1);
   });
 
@@ -149,7 +187,7 @@ describe("render — filters and photos", function () {
     });
     setState({ recipes: withPhoto, photoUrls: { "u/p.jpg": "data:image/gif;base64,R0lGODlhAQABAAAAACw=" } });
     render();
-    expect(root.querySelectorAll(".card .card-photo")).toHaveLength(1);
+    expect(root.querySelectorAll(".shelf")[0].querySelectorAll(".card .card-photo")).toHaveLength(1);
   });
 
   it("offers to add a photo in the detail view of a recipe without one", function () {
@@ -384,6 +422,44 @@ describe("render — modals", function () {
     setState({ recipes: SEED_RECIPES, modal: { type: "add", title: "", phase: "", tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", photoBlob: null, photoPreview: "", saving: false, error: "", freeText: "", scans: [], filling: false, filled: false, fillError: "" } });
     render();
     expect(root.textContent).toContain("Add a recipe");
+  });
+
+  it("shows only the earliest phase on a recipe's card and detail", function () {
+    var r = { id: "x", title: "Soup", phases: ["moderate", "rebuilding", "transition", "remission"], tags: ["Lunch"], ingredients: ["leek"], createdAt: 1 };
+    setState({ recipes: [r] });
+    render();
+    var card = root.querySelector(".card");
+    expect(card.querySelectorAll(".phase-dots span[style]")).toHaveLength(1);
+    expect(card.querySelector(".phase-name").textContent).toBe("Moderate");
+
+    setState({ recipes: [r], modal: { type: "detail", recipeId: "x", ratingStars: 0, ratingTol: "", ratingComment: "" } });
+    render();
+    var chips = root.querySelectorAll(".detail-phase-dots span");
+    expect(chips).toHaveLength(1);
+    expect(chips[0].textContent).toBe("Acute — Moderate");
+  });
+
+  it("opens a recipe in the form, filled in, from \"Edit\"", function () {
+    setState({ recipes: SEED_RECIPES, modal: { type: "detail", recipeId: "r-congee", ratingStars: 0, ratingTol: "", ratingComment: "" } });
+    render();
+    var edit = Array.from(root.querySelectorAll(".overlay button")).filter(function (b) { return b.textContent === "Edit"; })[0];
+    edit.click();
+    var congee = SEED_RECIPES.filter(function (r) { return r.id === "r-congee"; })[0];
+    expect(state.modal.editId).toBe("r-congee");
+    expect(root.textContent).toContain("Edit recipe");
+    expect(root.querySelector(".overlay input[type=text]").value).toBe(congee.title);
+    expect(root.querySelector(".overlay select").value).toBe(congee.phases[0]);
+    expect(root.querySelectorAll(".quick-fill")).toHaveLength(0);
+    expect(root.querySelectorAll(".photo-pick-field")).toHaveLength(0);
+  });
+
+  it("goes back to the recipe when editing is closed", function () {
+    setState({ recipes: SEED_RECIPES, modal: { type: "detail", recipeId: "r-congee", ratingStars: 0, ratingTol: "", ratingComment: "" } });
+    render();
+    Array.from(root.querySelectorAll(".overlay button")).filter(function (b) { return b.textContent === "Edit"; })[0].click();
+    root.querySelector(".overlay .close-x").click();
+    expect(state.modal.type).toBe("detail");
+    expect(state.modal.recipeId).toBe("r-congee");
   });
 
   it("asks for the earliest phase with a dropdown, not one pill per phase", function () {

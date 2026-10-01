@@ -31,6 +31,7 @@
 .panel-head h2 {
   font-family: var(--serif); font-weight: 600; font-size: 24px; margin: 0;
 }
+.panel-head-actions { display: flex; align-items: center; gap: 4px; flex: none; }
 .close-x {
   border: none; background: transparent; font-size: 20px; cursor: pointer; color: var(--ink-faint);
   line-height: 1; padding: 4px;

@@ -109,9 +109,9 @@ create policy "recipes: insert by approved members, as themselves"
   on public.recipes for insert
   with check (public.is_approved() and added_by = auth.uid());
 
--- Any approved member may add or replace a recipe's photo. The grants below
--- limit updates to that one column; nothing else about a recipe can change.
-create policy "recipes: approved members set the photo"
+-- Any approved member may edit a recipe or replace its photo. The grants
+-- below keep who added it, and when, fixed.
+create policy "recipes: approved members edit"
   on public.recipes for update
   using (public.is_approved())
   with check (public.is_approved());
@@ -175,7 +175,7 @@ grant usage on schema public to authenticated;
 grant select, insert on public.members to authenticated;
 grant update (name, role, last_phase) on public.members to authenticated;
 grant select, insert on public.recipes to authenticated;
-grant update (photo_path) on public.recipes to authenticated;
+grant update (title, phases, tags, ingredients, instructions, prep_minutes, servings, photo_path) on public.recipes to authenticated;
 grant select, insert, update on public.ratings to authenticated;
 grant select, insert, update, delete on public.shopping_items to authenticated;
 

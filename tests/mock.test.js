@@ -251,6 +251,33 @@ describe("MockBackend — photos", function () {
     off();
     expect(got.filter(function (r) { return r.title === "With photo"; })[0].photoPath).toBe(ALEX + "/x.jpg");
   });
+
+  it("edits a recipe but keeps who added it, when, and its photo", async function () {
+    var got = [];
+    var off = MockBackend.onRecipes(function (rows) { got = rows; });
+    await MockBackend.photoUrls([]);   // one mock round trip, so `got` is filled
+    var before = got.filter(function (r) { return r.id === "r-congee"; })[0];
+    await MockBackend.updateRecipe("r-congee", {
+      title: "Edited congee", phases: ["moderate", "rebuilding", "transition", "remission"], tags: ["Lunch"],
+      ingredients: ["rice"], instructions: "Simmer.", prepMinutes: 30, servings: 4
+    });
+    off();
+    var after = got.filter(function (r) { return r.id === "r-congee"; })[0];
+    expect(after.title).toBe("Edited congee");
+    expect(after.phases).toEqual(["moderate", "rebuilding", "transition", "remission"]);
+    expect(after.tags).toEqual(["Lunch"]);
+    expect(after.servings).toBe(4);
+    expect(after.addedBy).toBe(before.addedBy);
+    expect(after.createdAt).toBe(before.createdAt);
+    expect(after.photoPath).toBe(before.photoPath);
+  });
+
+  it("rejects editing a recipe that doesn't exist", async function () {
+    var failed = false;
+    try { await MockBackend.updateRecipe("no-such-recipe", { title: "x", phases: ["remission"], tags: ["x"], ingredients: ["x"] }); }
+    catch (e) { failed = true; }
+    expect(failed).toBe(true);
+  });
 });
 
 describe("MockBackend — quick fill", function () {

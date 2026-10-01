@@ -361,6 +361,22 @@ export const MockBackend = {
     });
   },
 
+  updateRecipe: function (recipeId, data) {
+    var db = read();
+    var recipe = db.recipes.filter(function (r) { return r.id === recipeId; })[0];
+    if (!recipe) return failLater("no such recipe");
+    recipe.title = data.title;
+    recipe.phases = data.phases;
+    recipe.tags = data.tags;
+    recipe.ingredients = data.ingredients;
+    recipe.instructions = data.instructions;
+    recipe.prepMinutes = data.prepMinutes;
+    recipe.servings = data.servings || 2;
+    write(db);
+    emit("recipes");
+    return later();
+  },
+
   setRecipePhoto: function (recipeId, path) {
     var db = read();
     var recipe = db.recipes.filter(function (r) { return r.id === recipeId; })[0];

@@ -1,13 +1,14 @@
 // "Add a recipe" form: an optional quick fill (LLM: free text and/or photos
 // of a printed recipe), then title, phases, tags, ingredients, instructions,
-// prep time and, last, a photo of the dish.
+// prep time and, last, a photo of the dish. The same form edits a saved
+// recipe (`m.editId`, see openEditRecipe), minus the quick fill and photo.
 
 import { PHASES } from "../config.js";
 import { state } from "../state.js";
 import { el } from "../lib/dom.js";
 import { allTags, recipePhases } from "../lib/recipes.js";
 import { Backend } from "../backend/index.js";
-import { closeModal, renderModalInPlace } from "./modal.js";
+import { closeModal, openDetail, renderModalInPlace } from "./modal.js";
 import { photoPicker } from "./photo-picker.js";
 import { SCAN_PHOTO } from "../lib/photos.js";
 
@@ -18,11 +19,11 @@ var CAMERA_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" st
 export function renderAddForm(m) {
   var wrap = el("div");
   wrap.appendChild(el("div", { class: "panel-head" }, [
-    el("h2", { text: "Add a recipe" }),
+    el("h2", { text: m.editId ? "Edit recipe" : "Add a recipe" }),
     el("button", { class: "close-x", attrs: { "aria-label": "Close" }, text: "✕", on: { click: closeModal } })
   ]));
 
-  wrap.appendChild(renderQuickFill(m));
+  if (!m.editId) wrap.appendChild(renderQuickFill(m));
 
   var titleField = el("label", { class: "field" }, [ el("span", { class: "lbl", text: "Title" }) ]);
   var titleInput = el("input", { attrs: { type: "text", placeholder: "e.g. Soft rice congee with poached chicken" } });
@@ -108,14 +109,14 @@ export function renderAddForm(m) {
   servField.appendChild(servInput);
   wrap.appendChild(servField);
 
-  wrap.appendChild(renderPhotoField(m));
+  if (!m.editId) wrap.appendChild(renderPhotoField(m));
 
   if (m.error) wrap.appendChild(el("div", { class: "form-error", text: m.error }));
 
   wrap.appendChild(el("button", {
     class: "btn btn-primary btn-block",
     attrs: m.saving ? { type: "button", disabled: "" } : { type: "button" },
-    text: m.saving ? "Saving…" : "Save recipe",
+    text: m.saving ? "Saving…" : (m.editId ? "Save changes" : "Save recipe"),
     on: { click: function(){ if (!m.saving) submitAddRecipe(m); } }
   }));
   return wrap;
@@ -263,11 +264,22 @@ export function submitAddRecipe(m) {
     ingredients: ingredients,
     instructions: m.instructions.trim(),
     prepMinutes: m.prepMinutes ? Number(m.prepMinutes) : null,
-    servings: Math.max(1, Math.min(50, Math.round(Number(m.servings)) || 2)),
-    addedBy: state.uid,
-    addedByName: (state.myProfile && state.myProfile.name) || "Someone",
-    createdAt: Date.now()
+    servings: Math.max(1, Math.min(50, Math.round(Number(m.servings)) || 2))
   };
+  function failed() {
+    m.saving = false;
+    m.error = "Couldn't save — check your connection and try again.";
+    renderModalInPlace();
+  }
+
+  if (m.editId) {
+    Backend.updateRecipe(m.editId, data).then(function(){ openDetail(m.editId); }).catch(failed);
+    return;
+  }
+
+  data.addedBy = state.uid;
+  data.addedByName = (state.myProfile && state.myProfile.name) || "Someone";
+  data.createdAt = Date.now();
   var upload = m.photoBlob ? Backend.uploadPhoto(state.uid, m.photoBlob) : Promise.resolve(null);
   upload.then(function(photoPath){
     data.photoPath = photoPath;
@@ -276,9 +288,5 @@ export function submitAddRecipe(m) {
     if (m.photoPreview) URL.revokeObjectURL(m.photoPreview);
     m.scans.forEach(function(scan){ URL.revokeObjectURL(scan.preview); });
     closeModal();
-  }).catch(function(){
-    m.saving = false;
-    m.error = "Couldn't save — check your connection and try again.";
-    renderModalInPlace();
-  });
+  }).catch(failed);
 }

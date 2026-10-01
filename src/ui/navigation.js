@@ -1,5 +1,6 @@
 // "Back" for the panels: one step up from wherever you are — an account
-// sub-page goes to the account menu, any other panel closes to the recipes.
+// sub-page goes to the account menu, editing a recipe goes back to that
+// recipe (closeModal() handles that), any other panel closes to the recipes.
 //
 // Two ways in:
 //
@@ -22,6 +23,7 @@ function depth() {
   var m = state.modal;
   if (!m || m.type === "onboarding") return 0;   // onboarding can't be left
   if (m.type === "account" && m.view && m.view !== "menu") return 2;
+  if (m.type === "add" && m.editId) return 2;   // editing, over the recipe
   return 1;
 }
 

@@ -27,7 +27,7 @@ changes something mutates `state` and calls `render()`.
 Two escape hatches exist because a full re-render would destroy focus or
 caret position mid-typing:
 
-- `renderGridInPlace()` — swaps only `.grid`, used by the search field.
+- `renderGridInPlace()` — swaps only `.recipes` (shelves or results grid), used by the search field.
 - `renderModalInPlace()` — swaps only `.overlay`, used by form validation and
   the star/tolerance pickers.
 

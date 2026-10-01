@@ -9,7 +9,7 @@ import { renderCapsMissing, renderLoading, renderPending, renderRejected } from 
 import { renderAuth } from "./auth.js";
 import { renderHeader } from "./header.js";
 import { renderPhaseDropdown, renderTagFilter, renderSearch } from "./filters.js";
-import { renderGrid } from "./grid.js";
+import { renderGrid, shelfScrollPositions, restoreShelfScroll } from "./grid.js";
 import { renderModal } from "./modal.js";
 import { syncHistory } from "./navigation.js";
 
@@ -19,6 +19,7 @@ export function render() {
 }
 
 function draw() {
+  var shelfScroll = shelfScrollPositions();
   root.innerHTML = "";
   if (state.capsMissing) { root.appendChild(renderCapsMissing()); return; }
   if (!state.ready) { root.appendChild(renderLoading()); return; }
@@ -44,6 +45,7 @@ function draw() {
   app.appendChild(renderSearch());
   app.appendChild(renderGrid());
   root.appendChild(app);
+  restoreShelfScroll(shelfScroll);
 
   if (state.modal) {
     root.appendChild(renderModal());
@@ -51,7 +53,9 @@ function draw() {
 }
 
 export function renderGridInPlace() {
-  var oldGrid = root.querySelector(".grid");
+  var shelfScroll = shelfScrollPositions();
+  var oldGrid = root.querySelector(".recipes");
   var newGrid = renderGrid();
   if (oldGrid) oldGrid.replaceWith(newGrid);
+  restoreShelfScroll(shelfScroll);
 }

@@ -11,11 +11,36 @@ import { renderDetail } from "./detail.js";
 import { renderAccount } from "./account.js";
 import { renderShopping } from "./shopping.js";
 import { attachSwipeBack } from "./navigation.js";
+import { recipePhases } from "../lib/recipes.js";
 
-export function closeModal() { state.modal = null; render(); }
+// Editing a recipe sits on top of its detail panel, so closing it goes back
+// there rather than to the recipes.
+export function closeModal() {
+  var m = state.modal;
+  if (m && m.type === "add" && m.editId) { openDetail(m.editId); return; }
+  state.modal = null;
+  render();
+}
 
 export function openAddRecipe() {
   state.modal = { type: "add", title: "", phase: "", tags: {}, customTagInput: "", ingredients: "", instructions: "", prepMinutes: "", servings: "2", photoBlob: null, photoPreview: "", saving: false, error: "", freeText: "", scans: [], filling: false, filled: false, fillError: "" };
+  render();
+}
+// The add form, filled in from a saved recipe. `editId` switches it to
+// editing: no quick fill or photo (the photo is changed on the recipe
+// itself), and saving or closing returns to the recipe.
+export function openEditRecipe(recipeId) {
+  var r = state.recipes.find(function(x){ return x.id === recipeId; });
+  if (!r) return;
+  var tags = {};
+  (r.tags || []).forEach(function(t){ tags[t] = true; });
+  state.modal = {
+    type: "add", editId: r.id,
+    title: r.title || "", phase: recipePhases(r)[0] || "", tags: tags, customTagInput: "",
+    ingredients: (r.ingredients || []).join("\n"), instructions: r.instructions || "",
+    prepMinutes: r.prepMinutes ? String(r.prepMinutes) : "", servings: String(r.servings || 2),
+    photoBlob: null, photoPreview: "", saving: false, error: "", freeText: "", scans: [], filling: false, filled: false, fillError: ""
+  };
   render();
 }
 export function openDetail(recipeId) {

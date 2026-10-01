@@ -96,7 +96,7 @@ src/
     auth.js         Sign-in and create-account screen
     header.js       Sticky top bar
     filters.js      Phase dropdown, tag filter dropdown, search
-    grid.js         Recipe grid, cards, empty state
+    grid.js         Home shelves (all + per tag), results grid, cards
     modal.js        Overlay shell + which modal is open
     onboarding.js   Name + role form (first run, and "Your details")
     account.js      Account panel behind the avatar: menu + pages

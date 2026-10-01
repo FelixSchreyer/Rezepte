@@ -5,7 +5,7 @@ import { state } from "../state.js";
 import { el } from "../lib/dom.js";
 import { ratingsFor, ratingSummary, starString, recipePhases } from "../lib/recipes.js";
 import { Backend } from "../backend/index.js";
-import { closeModal, renderModalInPlace } from "./modal.js";
+import { closeModal, openEditRecipe, renderModalInPlace } from "./modal.js";
 import { photoPicker } from "./photo-picker.js";
 import { peopleStepper, setPeople, shoppingItemFor } from "./shopping.js";
 import { DEFAULT_SERVINGS } from "../lib/shopping.js";
@@ -23,17 +23,18 @@ export function renderDetail(m) {
 
   wrap.appendChild(el("div", { class: "panel-head" }, [
     el("h2", { text: r.title }),
-    el("button", { class: "close-x", attrs: { "aria-label": "Close" }, text: "✕", on: { click: closeModal } })
+    el("div", { class: "panel-head-actions" }, [
+      el("button", { class: "btn btn-ghost btn-sm", attrs: { type: "button" }, text: "Edit", on: { click: function(){ openEditRecipe(r.id); } } }),
+      el("button", { class: "close-x", attrs: { "aria-label": "Close" }, text: "✕", on: { click: closeModal } })
+    ])
   ]));
 
   wrap.appendChild(renderDetailPhoto(m, r));
 
+  // Only the earliest phase: every later one is implied.
+  var earliest = PHASE_MAP[recipePhases(r)[0]];
   var dots = el("div", { class: "detail-phase-dots" });
-  recipePhases(r).forEach(function(pid){
-    var p = PHASE_MAP[pid];
-    if (!p) return;
-    dots.appendChild(el("span", { style: "background:" + p.color, text: p.label }));
-  });
+  if (earliest) dots.appendChild(el("span", { style: "background:" + earliest.color, text: earliest.label, attrs: { title: "Suitable from this phase on" } }));
   wrap.appendChild(dots);
 
   if ((r.tags||[]).length) wrap.appendChild(el("div", { class: "tags", text: (r.tags||[]).join(" · ") }));
@@ -112,8 +113,8 @@ function renderShoppingControl(m, r, servings) {
   return box;
 }
 
-// Any approved member can add a photo to a recipe, or replace it — the one
-// thing about a saved recipe that can change (see db/schema.sql).
+// Any approved member can add a photo to a recipe, or replace it. The rest
+// of the recipe is changed through "Edit" (see db/schema.sql).
 function renderDetailPhoto(m, r) {
   var box = el("div", { class: "detail-photo" });
   var url = r.photoPath && state.photoUrls[r.photoPath];

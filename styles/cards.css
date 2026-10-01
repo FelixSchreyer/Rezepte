@@ -25,9 +25,13 @@
   margin: 0;
   line-height: 1.25;
 }
-.card .phase-dots { display: flex; gap: 5px; }
+.card .phase-dots { display: flex; align-items: center; gap: 6px; }
 .card .phase-dots span {
   width: 9px; height: 9px; border-radius: 50%;
+}
+.card .phase-dots .phase-name {
+  width: auto; height: auto; border-radius: 0;
+  font-size: 12px; font-weight: 600; color: var(--ink-soft);
 }
 .card .meta {
   font-size: 12.5px; color: var(--ink-faint);
@@ -61,4 +65,40 @@
   aspect-ratio: 16 / 10;
   object-fit: cover;
   background: var(--surface-sunk);
+}
+
+/* Home screen shelves: a heading row, then cards scrolling sideways. The
+   track bleeds into the .app side padding so cards run to the screen edge
+   on a phone, while the first card still lines up with the content. */
+.recipes { margin-top: 22px; }
+.recipes > .grid { margin-top: 0; }
+.shelf + .shelf { margin-top: 26px; }
+.shelf-head {
+  display: flex; align-items: baseline; gap: 8px;
+  margin-bottom: 10px;
+}
+.shelf-head h2 {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 20px;
+  margin: 0;
+}
+.shelf-count { font-size: 13px; color: var(--ink-faint); }
+.shelf-more { margin-left: auto; }
+.shelf-track {
+  display: flex; gap: 14px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding: 0 20px;
+  margin: 0 -20px;
+  padding: 2px 20px 8px;
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+}
+.shelf-track > .card {
+  flex: 0 0 260px;
+  scroll-snap-align: start;
+}
+@media (max-width: 520px) {
+  .shelf-track > .card { flex-basis: 78%; }
 }
