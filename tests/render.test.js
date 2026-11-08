@@ -453,6 +453,50 @@ describe("render — modals", function () {
     expect(root.querySelectorAll(".photo-pick-field")).toHaveLength(0);
   });
 
+  it("offers \"Delete recipe\" only to whoever added it, or an admin", function () {
+    function detail(id) { return { type: "detail", recipeId: id, ratingStars: 0, ratingTol: "", ratingComment: "" }; }
+    setState({ recipes: SEED_RECIPES, modal: detail("r-eggs") });   // added by Alex, the signed-in user
+    render();
+    expect(root.querySelectorAll(".detail-delete-btn")).toHaveLength(1);
+
+    setState({ recipes: SEED_RECIPES, modal: detail("r-congee") });   // added by Sam
+    render();
+    expect(root.querySelectorAll(".detail-delete-btn")).toHaveLength(0);
+
+    setState({ recipes: SEED_RECIPES, modal: detail("r-congee") });
+    state.myProfile.isAdmin = true;
+    render();
+    expect(root.querySelectorAll(".detail-delete-btn")).toHaveLength(1);
+  });
+
+  it("asks again before deleting, naming the ratings that go with it", function () {
+    var ratings = [{ id: "rt", recipeId: "r-eggs", uid: "mock-user-alex", name: "Alex", stars: 4, tolerance: "good", comment: "", createdAt: 1 }];
+    setState({ recipes: SEED_RECIPES, ratings: ratings, modal: { type: "detail", recipeId: "r-eggs", ratingStars: 0, ratingTol: "", ratingComment: "" } });
+    render();
+    root.querySelector(".detail-delete-btn").click();
+    expect(state.modal.confirmDelete).toBe(true);
+    expect(root.querySelector(".detail-delete-btn").textContent).toContain("its 1 rating will be lost too");
+  });
+
+  it("doesn't replay the panel's slide-in when a star is tapped", function () {
+    setState({ recipes: SEED_RECIPES, modal: { type: "detail", recipeId: "r-congee", ratingStars: 0, ratingTol: "", ratingComment: "" } });
+    render();
+    expect(root.querySelector(".panel").classList.contains("settled")).toBe(false);
+    root.querySelectorAll(".star-picker button")[3].click();
+    expect(state.modal.ratingStars).toBe(4);
+    expect(root.querySelector(".panel").classList.contains("settled")).toBe(true);
+    render();   // e.g. the saved rating syncing back
+    expect(root.querySelector(".panel").classList.contains("settled")).toBe(true);
+  });
+
+  it("still slides a different panel in", function () {
+    setState({ recipes: SEED_RECIPES, modal: { type: "detail", recipeId: "r-congee", ratingStars: 0, ratingTol: "", ratingComment: "" } });
+    render();
+    state.modal = { type: "detail", recipeId: "r-eggs", ratingStars: 0, ratingTol: "", ratingComment: "" };
+    render();
+    expect(root.querySelector(".panel").classList.contains("settled")).toBe(false);
+  });
+
   it("goes back to the recipe when editing is closed", function () {
     setState({ recipes: SEED_RECIPES, modal: { type: "detail", recipeId: "r-congee", ratingStars: 0, ratingTol: "", ratingComment: "" } });
     render();

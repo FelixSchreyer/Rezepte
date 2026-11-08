@@ -33,5 +33,6 @@ button { font-family: inherit; }
 
 @media (prefers-reduced-motion: no-preference) {
   .overlay .panel { animation: slidein 0.22s ease-out; }
+  .overlay .panel.settled { animation: none; }   /* same panel, re-rendered: see modal.js */
 }
 @keyframes slidein { from { transform: translateX(16px); opacity: 0; } to { transform: none; opacity: 1; } }

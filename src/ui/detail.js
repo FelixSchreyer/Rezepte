@@ -88,7 +88,45 @@ export function renderDetail(m) {
     wrap.appendChild(el("div", { class: "helper-banner", text: "Only the patient role can rate recipes. Switch your role from the profile chip if that's you." }));
   }
 
+  if (canDelete(r)) wrap.appendChild(renderDeleteControl(m, r, rs.length));
+
   return wrap;
+}
+
+// Whoever added a recipe, or an admin — the same rule db/schema.sql enforces.
+export function canDelete(r) {
+  var me = state.myProfile;
+  return !!me && (r.addedBy === state.uid || !!me.isAdmin);
+}
+
+// Deleting is for everyone and takes the ratings with it, so it takes two
+// taps, and the second one says what will be lost.
+function renderDeleteControl(m, r, ratingCount) {
+  var box = el("div", { class: "detail-delete" });
+  var confirmText = "Tap again to delete for everyone" +
+    (ratingCount ? " — its " + ratingCount + " rating" + (ratingCount > 1 ? "s" : "") + " will be lost too" : "");
+  box.appendChild(el("button", {
+    class: "btn btn-ghost btn-block detail-delete-btn",
+    attrs: m.deleting ? { type: "button", disabled: "" } : { type: "button" },
+    text: m.deleting ? "Deleting…" : (m.confirmDelete ? confirmText : "Delete recipe"),
+    on: { click: function(){ if (!m.deleting) deleteRecipe(m, r); } }
+  }));
+  if (m.deleteError) box.appendChild(el("div", { class: "form-error", style: "margin:8px 0 0;", text: m.deleteError }));
+  return box;
+}
+
+function deleteRecipe(m, r) {
+  if (!m.confirmDelete) { m.confirmDelete = true; m.deleteError = ""; renderModalInPlace(); return; }
+  m.confirmDelete = false;
+  m.deleting = true;
+  renderModalInPlace();
+  Backend.deleteRecipe(r.id).then(function(){
+    closeModal();
+  }).catch(function(){
+    m.deleting = false;
+    m.deleteError = "Couldn't delete — check your connection and try again.";
+    renderModalInPlace();
+  });
 }
 
 // "Add to shopping list", or — once it's on — for how many people, and a

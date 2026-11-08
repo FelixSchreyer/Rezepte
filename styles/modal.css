@@ -8,12 +8,20 @@
   z-index: 100;
 }
 .overlay.show { display: flex; }
+
+/* While a panel is open the recipes behind it must not scroll: a swipe on a
+   panel too short to scroll would otherwise move the page underneath, and
+   phones show that page's scroll bar over the panel. Only on <html> (the
+   viewport) — on body as well, body's 100% height would clip the page. */
+html.modal-open { overflow: hidden; }
+
 .panel {
   transition: transform 0.2s ease;   /* springing back / sliding off after a swipe */
   background: var(--bg);
   width: min(520px, 100%);
   height: 100%;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: calc(20px + env(safe-area-inset-top, 0px)) 22px calc(32px + env(safe-area-inset-bottom, 0px));
   box-shadow: -8px 0 24px rgba(0,0,0,0.12);
 }

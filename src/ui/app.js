@@ -10,7 +10,7 @@ import { renderAuth } from "./auth.js";
 import { renderHeader } from "./header.js";
 import { renderPhaseDropdown, renderTagFilter, renderSearch } from "./filters.js";
 import { renderGrid, shelfScrollPositions, restoreShelfScroll } from "./grid.js";
-import { renderModal } from "./modal.js";
+import { renderModal, snapshotModal, restoreModal } from "./modal.js";
 import { syncHistory } from "./navigation.js";
 
 export function render() {
@@ -20,6 +20,8 @@ export function render() {
 
 function draw() {
   var shelfScroll = shelfScrollPositions();
+  var modalSnap = snapshotModal();
+  document.documentElement.classList.toggle("modal-open", !!state.modal);
   root.innerHTML = "";
   if (state.capsMissing) { root.appendChild(renderCapsMissing()); return; }
   if (!state.ready) { root.appendChild(renderLoading()); return; }
@@ -33,6 +35,7 @@ function draw() {
       state.modal = { type: "onboarding", name: "", role: "", error: "" };
     }
     root.appendChild(renderModal());
+    restoreModal(modalSnap);
     return;
   }
   if (state.myProfile.status === "rejected") { root.appendChild(renderRejected()); return; }
@@ -49,6 +52,7 @@ function draw() {
 
   if (state.modal) {
     root.appendChild(renderModal());
+    restoreModal(modalSnap);
   }
 }
 

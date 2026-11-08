@@ -30,6 +30,8 @@ import { blobToBase64 } from "../lib/photos.js";
  *   addRecipe(data)              -> Promise<void>
  *   updateRecipe(recipeId, data) -> Promise<void>   (title, phases, tags, ingredients,
  *                                   instructions, prepMinutes, servings)
+ *   deleteRecipe(recipeId)       -> Promise<void>   (whoever added it, or an admin; its
+ *                                   ratings, shopping entry and photo go with it)
  *   uploadPhoto(uid, blob)       -> Promise<path>   (a JPEG, already resized)
  *   photoUrls(paths)             -> Promise<{ path: url }>  (valid ~24h)
  *   setRecipePhoto(recipeId, path) -> Promise<void>
@@ -230,6 +232,19 @@ export const Backend = (function () {
         prep_minutes: data.prepMinutes,
         servings: data.servings || 2
       }).eq("id", recipeId));
+    },
+
+    // Row-level security turns a delete that isn't allowed into one that
+    // matches nothing, so ask for the deleted row back to tell the two apart.
+    // Ratings and the shopping entry go by cascade; the photo is removed
+    // afterwards, best effort — a leftover file is invisible, not broken.
+    deleteRecipe: async function (recipeId) {
+      var res = check(await sb.from("recipes").delete().eq("id", recipeId).select("photo_path"));
+      if (!res.data || !res.data.length) throw new Error("not allowed to delete this recipe");
+      var photo = res.data[0].photo_path;
+      if (photo) {
+        try { await sb.storage.from(PHOTO_BUCKET).remove([photo]); } catch (e) { /* see above */ }
+      }
     },
 
     // The folder must be the uploader's own id — the storage policy in

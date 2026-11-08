@@ -64,6 +64,7 @@ export function renderModal() {
   var m = state.modal;
   var centered = (m.type === "onboarding");
   var overlay = el("div", { class: "overlay show", attrs: { role: "dialog", "aria-modal": "true" }, on: { click: function(e){ if (e.target === overlay && m.type !== "onboarding") closeModal(); } } });
+  overlay.dataset.key = modalKey(m);
   var panel = el("div", { class: "panel" + (centered ? " center" : "") });
   if (!centered) attachSwipeBack(panel);
   if (m.type === "onboarding") panel.appendChild(renderOnboardingForm(m));
@@ -75,8 +76,36 @@ export function renderModal() {
   return overlay;
 }
 
+// Which panel is showing: the same key means the same panel, just updated
+// (a star tapped, a rating saved and synced back). A different key is a new
+// panel — another recipe, another account page — which starts at the top.
+function modalKey(m) {
+  return m.type + ":" + (m.recipeId || m.editId || m.view || "");
+}
+
+// Re-rendering the same panel must not look like opening it again: no
+// slide-in animation (a flicker on every tap) and no jump back to the top.
+// Both render() and renderModalInPlace() take a snapshot of the open panel
+// before tearing it down (a detached panel reports scrollTop 0) and hand it
+// to restoreModal() once the new one is in the page.
+export function snapshotModal() {
+  var overlay = root.querySelector(".overlay");
+  var panel = overlay && overlay.querySelector(".panel");
+  return panel ? { key: overlay.dataset.key, scrollTop: panel.scrollTop } : null;
+}
+
+export function restoreModal(snap) {
+  var overlay = root.querySelector(".overlay");
+  var panel = overlay && overlay.querySelector(".panel");
+  if (!snap || !panel || overlay.dataset.key !== snap.key) return;
+  panel.classList.add("settled");
+  panel.scrollTop = snap.scrollTop;
+}
+
 export function renderModalInPlace() {
+  var snap = snapshotModal();
   var oldOverlay = root.querySelector(".overlay");
   var newOverlay = renderModal();
   if (oldOverlay) oldOverlay.replaceWith(newOverlay); else root.appendChild(newOverlay);
+  restoreModal(snap);
 }

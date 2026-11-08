@@ -12,6 +12,7 @@ drop table if exists public.shopping_items, public.ratings, public.recipes, publ
 
 drop policy if exists "recipe photos: read by approved members" on storage.objects;
 drop policy if exists "recipe photos: approved members upload into their own folder" on storage.objects;
+drop policy if exists "recipe photos: approved members delete unused ones" on storage.objects;
 
 drop function if exists public.set_member_status(uuid, text);
 drop function if exists public.is_admin();

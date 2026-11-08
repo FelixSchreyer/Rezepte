@@ -377,6 +377,26 @@ export const MockBackend = {
     return later();
   },
 
+  // Mirrors the delete policy and the on-delete-cascades in db/schema.sql.
+  deleteRecipe: function (recipeId) {
+    var db = read();
+    var recipe = db.recipes.filter(function (r) { return r.id === recipeId; })[0];
+    var me = db.members[db.session];
+    if (!recipe) return failLater("no such recipe");
+    if (!me || me.status !== "approved" || !(recipe.addedBy === db.session || me.isAdmin)) {
+      return failLater("only whoever added a recipe, or an admin, can delete it");
+    }
+    db.recipes = db.recipes.filter(function (r) { return r.id !== recipeId; });
+    db.ratings = db.ratings.filter(function (r) { return r.recipeId !== recipeId; });
+    db.shopping = (db.shopping || []).filter(function (s) { return s.recipeId !== recipeId; });
+    if (recipe.photoPath && db.photos) delete db.photos[recipe.photoPath];
+    write(db);
+    emit("recipes");
+    emit("ratings");
+    emit("shopping");
+    return later();
+  },
+
   setRecipePhoto: function (recipeId, path) {
     var db = read();
     var recipe = db.recipes.filter(function (r) { return r.id === recipeId; })[0];

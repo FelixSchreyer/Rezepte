@@ -1,8 +1,13 @@
 /* Sticky top bar: brand, actions and the profile chip. */
 
+/* The bar sits inside .app's side padding but its background and border
+   run the full screen width, so nothing scrolls past beside it. The padding
+   pulls its content back in line with the page. */
 header.top {
   position: sticky; top: 0; z-index: 20;
   background: var(--bg);
+  margin-inline: calc(50% - 50vw);
+  padding-inline: calc(50vw - 50%);
   padding-top: calc(18px + env(safe-area-inset-top, 0px));
   padding-bottom: 14px;
   border-bottom: 1px solid var(--line);

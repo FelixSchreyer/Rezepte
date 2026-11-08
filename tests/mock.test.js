@@ -340,6 +340,51 @@ describe("MockBackend — shopping list", function () {
   });
 });
 
+describe("MockBackend — deleting recipes", function () {
+  beforeAll(reset);
+
+  // Current rows of a table, after one mock round trip.
+  async function current(subscribe) {
+    var got = [];
+    var off = subscribe(function (r) { got = r; });
+    await MockBackend.photoUrls([]);
+    off();
+    return got;
+  }
+  function ids(rows, key) { return rows.map(function (r) { return r[key || "id"]; }); }
+  function jpeg() { return new Blob(["not really a jpeg"], { type: "image/jpeg" }); }
+
+  it("refuses a member who didn't add the recipe", async function () {
+    await MockBackend.signIn("robin@example.com", SEED_PASSWORD);
+    var failed = false;
+    try { await MockBackend.deleteRecipe("r-congee"); } catch (e) { failed = true; }   // Sam's
+    expect(failed).toBe(true);
+    expect(ids(await current(MockBackend.onRecipes))).toContain("r-congee");
+  });
+
+  it("lets whoever added it delete it, with its ratings and shopping entry", async function () {
+    await MockBackend.signIn("sam@example.com", SEED_PASSWORD);
+    await MockBackend.setShoppingPeople("r-broth", 2, "mock-user-sam");
+    await MockBackend.deleteRecipe("r-broth");   // Sam's own
+    expect(ids(await current(MockBackend.onRecipes)).indexOf("r-broth")).toBe(-1);
+    expect(ids(await current(MockBackend.onRatings), "recipeId").indexOf("r-broth")).toBe(-1);
+    expect(ids(await current(MockBackend.onShopping), "recipeId").indexOf("r-broth")).toBe(-1);
+  });
+
+  it("lets an admin delete anyone's recipe", async function () {
+    await MockBackend.signIn("alex@example.com", SEED_PASSWORD);   // admin in the seed
+    await MockBackend.deleteRecipe("r-squash");   // Robin's
+    expect(ids(await current(MockBackend.onRecipes)).indexOf("r-squash")).toBe(-1);
+  });
+
+  it("removes the deleted recipe's photo", async function () {
+    var path = await MockBackend.uploadPhoto(ALEX, jpeg());
+    await MockBackend.setRecipePhoto("r-oats", path);   // Alex's
+    await MockBackend.deleteRecipe("r-oats");
+    expect(await MockBackend.photoUrls([path])).toEqual({});
+  });
+});
+
 describe("MockBackend — ratings", function () {
   beforeAll(reset);
 

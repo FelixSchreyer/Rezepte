@@ -116,6 +116,12 @@ create policy "recipes: approved members edit"
   using (public.is_approved())
   with check (public.is_approved());
 
+-- Deleting is for whoever added the recipe, or an admin: it takes the
+-- recipe's ratings and shopping-list entry with it (on delete cascade).
+create policy "recipes: deleted by whoever added it, or an admin"
+  on public.recipes for delete
+  using (public.is_approved() and (added_by = auth.uid() or public.is_admin()));
+
 -- ---------- ratings ----------
 create table if not exists public.ratings (
   id uuid primary key default gen_random_uuid(),
@@ -176,6 +182,7 @@ grant select, insert on public.members to authenticated;
 grant update (name, role, last_phase) on public.members to authenticated;
 grant select, insert on public.recipes to authenticated;
 grant update (title, phases, tags, ingredients, instructions, prep_minutes, servings, photo_path) on public.recipes to authenticated;
+grant delete on public.recipes to authenticated;
 grant select, insert, update on public.ratings to authenticated;
 grant select, insert, update, delete on public.shopping_items to authenticated;
 
@@ -201,6 +208,17 @@ create policy "recipe photos: approved members upload into their own folder"
     bucket_id = 'recipe-photos'
     and public.is_approved()
     and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+-- Cleaning up after a deleted recipe. Its photo may have been uploaded by
+-- someone else, so this isn't tied to the uploader's folder — instead only
+-- a photo that no recipe uses any more can be deleted.
+create policy "recipe photos: approved members delete unused ones"
+  on storage.objects for delete to authenticated
+  using (
+    bucket_id = 'recipe-photos'
+    and public.is_approved()
+    and not exists (select 1 from public.recipes r where r.photo_path = storage.objects.name)
   );
 
 -- ---------- realtime (so all devices see changes live) ----------
