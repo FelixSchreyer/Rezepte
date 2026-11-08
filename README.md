@@ -73,6 +73,10 @@ Add a test by creating `tests/whatever.test.js` and importing it from
 ```
 index.html          Markup shell — loads the stylesheets and src/main.js
 serve.sh            Local dev server (python3 stdlib)
+icons/
+  icon.svg          The bear, round — browser-tab icon and the source of:
+  apple-touch-icon.png  180×180 full-square version for the iPhone home screen
+                    (sips -s format png -z 180 180 <square svg> --out …)
 src/
   main.js           Entry point: first paint, then init()
   boot.js           Lifecycle: connect, sign in, load profile, subscribe
