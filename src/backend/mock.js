@@ -17,6 +17,8 @@
 //   ?mock&fail=connect    force the "Couldn't connect" screen
 //   ?mock&fail=auth       make every sign-in and sign-up fail
 //   ?mock&fail=llm        make "Fill in the form" fail
+//   ?mock&fail=sync       make refresh() fail (as on waking up offline), to see
+//                         the "may be out of date" notice
 //
 // Row-level security is NOT emulated: a pending member could read recipes
 // here if the app asked. The one server-side rule the mock does enforce is
@@ -87,6 +89,7 @@ function uuid() {
 // ---------------- subscriptions ----------------
 
 var listeners = { members: [], recipes: [], ratings: [], shopping: [] };
+var syncCb = function () {};
 
 function rowsFor(table, db) {
   if (table === "members") return Object.keys(db.members).map(function (k) { return db.members[k]; });
@@ -224,6 +227,13 @@ export const MockBackend = {
     emit("members");
     return later();
   },
+
+  refresh: function () {
+    if (FAIL === "sync") { syncCb(false); return failLater("refresh failed"); }
+    return later().then(function () { emitAll(); syncCb(true); });
+  },
+
+  onSyncState: function (cb) { syncCb = cb; },
 
   onMembers: function (cb) { return subscribe("members", cb); },
   onRecipes: function (cb) { return subscribe("recipes", cb); },
@@ -401,7 +411,11 @@ export const MockBackend = {
     var db = read();
     var recipe = db.recipes.filter(function (r) { return r.id === recipeId; })[0];
     if (!recipe) return failLater("no such recipe");
+    // Like supabase.js: the photo it replaces goes, if nothing else uses it.
+    var old = recipe.photoPath;
     recipe.photoPath = path;
+    var stillUsed = db.recipes.some(function (r) { return r.photoPath === old; });
+    if (old && old !== path && !stillUsed && db.photos) delete db.photos[old];
     write(db);
     emit("recipes");
     return later();

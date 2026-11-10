@@ -73,9 +73,28 @@ export async function loadPhotoUrls() {
   }
 }
 
-document.addEventListener("visibilitychange", function () {
-  if (document.visibilityState === "visible" && state.uid && state.recipes.length) loadPhotoUrls();
+// Realtime does not replay what happened while the phone slept or was
+// offline, so coming back reloads every live table (see supabase.js).
+// Photo URLs are checked too, in case they have expired meanwhile.
+export function refreshNow() {
+  if (!state.uid) return Promise.resolve();
+  return Backend.refresh().catch(function () {
+    // state.syncFailed is set through onSyncState; the notice offers a retry.
+  });
+}
+
+Backend.onSyncState(function (ok) {
+  if (state.syncFailed === !ok) return;
+  state.syncFailed = !ok;
+  render();
 });
+
+document.addEventListener("visibilitychange", function () {
+  if (document.visibilityState !== "visible" || !state.uid) return;
+  refreshNow();
+  if (state.recipes.length) loadPhotoUrls();
+});
+window.addEventListener("online", refreshNow);
 
 function clearSubscriptions() {
   unsubscribers.forEach(function (off) { off(); });
@@ -107,6 +126,7 @@ export async function signOut() {
   state.shoppingTidy = null;
   state.photoUrls = {};
   state.photoUrlsAt = 0;
+  state.syncFailed = false;
   state.activePhase = null;
   state.activeTags = {};
   state.search = "";

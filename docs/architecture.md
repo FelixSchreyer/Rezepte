@@ -80,7 +80,11 @@ onShopping(cb)                     -> unsubscribe();  cb(Array)
 setShoppingPeople(recipeId, people, uid) | removeFromShopping(recipeId) | clearShopping()
 tidyShoppingList(lines)            -> Promise<string[]>
 onMembers | onRecipes | onRatings  -> unsubscribe();  cb(Array)
+refresh()                          -> Promise<void>   (reload every live table)
+onSyncState(cb)                    -> cb(false) when a live table fails to load, cb(true) once all load again
 addRecipe(data)                    -> Promise<void>
+updateRecipe(recipeId, data)       -> Promise<void>
+deleteRecipe(recipeId)             -> Promise<void>   (whoever added it, or an admin)
 upsertRating(recipeId, uid, data)  -> Promise<void>
 fetchFilterState(uid)              -> Promise<Object | null>
 saveFilterState(uid, data)         -> Promise<void>
@@ -95,6 +99,15 @@ functions and nothing else.
 Realtime is deliberately coarse: `liveTable()` re-`SELECT`s the whole table on
 any change notification. The dataset is one family's recipe box, so this is
 simpler than reconciling individual row deltas and fast enough.
+
+Realtime does not replay changes missed while the socket was down, and iOS
+drops it within seconds of the app going to the background. So a table also
+reloads whenever its channel subscribes again, and `boot.js` calls
+`Backend.refresh()` when the app comes back to the foreground or online. If
+a load fails, `onSyncState` reports it and the app shows a "may be out of
+date" notice with a retry above the recipes (`state.syncFailed`) — the data
+already on screen stays. Overlapping loads of one table are numbered, and
+only the latest is applied.
 
 Every write rejects on failure. supabase-js resolves refused queries with
 `{ error }` instead of throwing, so `supabase.js` checks each result — without
@@ -205,8 +218,9 @@ are close to their 24h expiry — checked again when the app comes back to the
 foreground. The mock keeps photos as data URLs inside its localStorage entry,
 which holds only a handful.
 
-A replaced photo's old file stays in the bucket; nothing deletes storage
-objects yet.
+A replaced photo's old file is removed from the bucket by `setRecipePhoto`,
+and a deleted recipe's photo by `deleteRecipe` — best effort, and the
+storage policy only allows deleting a file no recipe points at any more.
 
 ## Quick fill (LLM)
 

@@ -5,7 +5,7 @@
 import { root, state } from "../state.js";
 import { el } from "../lib/dom.js";
 import { isApproved } from "../lib/members.js";
-import { renderCapsMissing, renderLoading, renderPending, renderRejected } from "./screens.js";
+import { renderCapsMissing, renderLoading, renderPending, renderRejected, renderSyncNotice } from "./screens.js";
 import { renderAuth } from "./auth.js";
 import { renderHeader } from "./header.js";
 import { renderPhaseDropdown, renderTagFilter, renderSearch } from "./filters.js";
@@ -43,6 +43,7 @@ function draw() {
 
   var app = el("div", { class: "app" });
   app.appendChild(renderHeader());
+  if (state.syncFailed) app.appendChild(renderSyncNotice());
   app.appendChild(renderPhaseDropdown());
   app.appendChild(renderTagFilter());
   app.appendChild(renderSearch());

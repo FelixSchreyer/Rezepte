@@ -59,8 +59,9 @@
 .detail-photo .photo-status { font-size: 13px; color: var(--ink-faint); margin-bottom: 8px; }
 
 /* "Delete recipe": last, set apart, and red so it isn't tapped by accident. */
-.detail-delete {
+.detail-actions {
   margin-top: 28px; padding-top: 16px;
   border-top: 1px solid var(--line);
 }
+.detail-delete { margin-top: 8px; }
 .detail-delete-btn { color: var(--danger); }

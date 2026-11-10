@@ -1,9 +1,19 @@
 // Full-screen states shown instead of the app: connecting, connection
-// failed, and the two "signed in but not let in" states.
+// failed, and the two "signed in but not let in" states — plus the one
+// notice shown above the app, when what it shows may be out of date.
 
 import { state } from "../state.js";
 import { el } from "../lib/dom.js";
-import { retryInit, signOut } from "../boot.js";
+import { refreshNow, retryInit, signOut } from "../boot.js";
+
+// Shown while a live table fails to reload (offline, or the server is
+// unreachable). The recipes stay on screen; they just may be old.
+export function renderSyncNotice() {
+  return el("div", { class: "sync-notice", attrs: { role: "status" } }, [
+    el("span", { text: "Couldn't refresh — this may be out of date." }),
+    el("button", { class: "btn btn-sm", attrs: { type: "button" }, text: "Try again", on: { click: refreshNow } })
+  ]);
+}
 
 export function renderCapsMissing() {
   return el("div", { class: "center-screen" }, [

@@ -212,6 +212,24 @@ describe("MockBackend — recipes", function () {
     });
     expect(calls).toBe(seen);
   });
+
+  it("delivers the current rows again on refresh()", async function () {
+    var calls = 0;
+    var off = MockBackend.onRecipes(function () { calls++; });
+    await MockBackend.photoUrls([]);   // one mock round trip: the initial delivery
+    var seen = calls;
+    await MockBackend.refresh();
+    off();
+    expect(calls).toBe(seen + 1);
+  });
+
+  it("reports a healthy sync after refresh()", async function () {
+    var reported = null;
+    MockBackend.onSyncState(function (ok) { reported = ok; });
+    await MockBackend.refresh();
+    MockBackend.onSyncState(function () {});
+    expect(reported).toBe(true);
+  });
 });
 
 describe("MockBackend — photos", function () {
@@ -238,6 +256,24 @@ describe("MockBackend — photos", function () {
     await MockBackend.setRecipePhoto("r-congee", path);
     off();
     expect(got.filter(function (r) { return r.id === "r-congee"; })[0].photoPath).toBe(path);
+  });
+
+  it("removes the photo a new one replaces", async function () {
+    var first = await MockBackend.uploadPhoto(ALEX, jpeg());
+    await MockBackend.setRecipePhoto("r-congee", first);
+    var second = await MockBackend.uploadPhoto(ALEX, jpeg());
+    await MockBackend.setRecipePhoto("r-congee", second);
+    var urls = await MockBackend.photoUrls([first, second]);
+    expect(urls[first]).toBe(undefined);
+    expect(urls[second].indexOf("data:image/jpeg")).toBe(0);
+  });
+
+  it("keeps a replaced photo another recipe still uses", async function () {
+    var shared = await MockBackend.uploadPhoto(ALEX, jpeg());
+    await MockBackend.setRecipePhoto("r-congee", shared);
+    await MockBackend.setRecipePhoto("r-oats", shared);
+    await MockBackend.setRecipePhoto("r-congee", await MockBackend.uploadPhoto(ALEX, jpeg()));
+    expect((await MockBackend.photoUrls([shared]))[shared].indexOf("data:image/jpeg")).toBe(0);
   });
 
   it("saves a photo path given with a new recipe", async function () {

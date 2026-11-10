@@ -27,14 +27,16 @@ import { blobToBase64 } from "../lib/photos.js";
  *   onMembers(cb)                -> unsubscribe();  cb(Array<{id, ...}>)
  *   onRecipes(cb)                -> unsubscribe();  cb(Array<{id, ...}>)
  *   onRatings(cb)                -> unsubscribe();  cb(Array<{id, ...}>)
- *   addRecipe(data)              -> Promise<void>
+ *   refresh()                    -> Promise<void>   (reload every live table; rejects if one fails)
+ *   onSyncState(cb)              -> cb(false) when a live table fails to load, cb(true) once all load again
+ *   addRecipe(data)             -> Promise<void>
  *   updateRecipe(recipeId, data) -> Promise<void>   (title, phases, tags, ingredients,
  *                                   instructions, prepMinutes, servings)
  *   deleteRecipe(recipeId)       -> Promise<void>   (whoever added it, or an admin; its
  *                                   ratings, shopping entry and photo go with it)
  *   uploadPhoto(uid, blob)       -> Promise<path>   (a JPEG, already resized)
  *   photoUrls(paths)             -> Promise<{ path: url }>  (valid ~24h)
- *   setRecipePhoto(recipeId, path) -> Promise<void>
+ *   setRecipePhoto(recipeId, path) -> Promise<void>  (the replaced photo is removed)
  *   onShopping(cb)               -> unsubscribe();  cb(Array<{recipeId, people, ...}>)
  *   setShoppingPeople(recipeId, people, uid) -> Promise<void>  (adds or updates)
  *   removeFromShopping(recipeId) -> Promise<void>
@@ -60,8 +62,8 @@ import { blobToBase64 } from "../lib/photos.js";
  * All ids are opaque strings. All timestamps are numbers (Date.now()).
  *
  * BACKEND: Supabase (Postgres + Auth + Realtime).
- * Schema: see db/schema.sql (tables: members, recipes, ratings;
- * row-level security policies; realtime enabled on all three tables).
+ * Schema: see db/schema.sql (tables: members, recipes, ratings,
+ * shopping_items; row-level security policies; realtime enabled on all four).
  */
 export const Backend = (function () {
   var sb = null;
@@ -83,17 +85,63 @@ export const Backend = (function () {
     return "network";
   }
 
+  // Every open live table, by name, so refresh() can reload them all.
+  var liveLoads = {};
+  // Tables whose last load failed; the app is told when this turns empty
+  // or non-empty, so it can say the list may be out of date.
+  var failing = {};
+  var syncCb = function () {};
+
+  function setFailing(table, failed) {
+    var before = Object.keys(failing).length === 0;
+    if (failed) failing[table] = true; else delete failing[table];
+    var after = Object.keys(failing).length === 0;
+    if (before !== after) syncCb(after);
+  }
+
+  // Postgres changes are not replayed: whatever happens while the socket is
+  // down (an iPhone in the pocket kills it within seconds) is simply missed.
+  // So reload on every (re)subscribe after the first, and whenever
+  // refresh() asks. Loads can overlap; only the latest one is applied.
   function liveTable(table, mapper, cb) {
+    var seq = 0;
     function load() {
-      sb.from(table).select("*").then(function (res) {
-        if (!res.error) cb((res.data || []).map(mapper));
+      var mine = ++seq;
+      return sb.from(table).select("*").then(function (res) {
+        if (res.error) throw res.error;
+        if (mine !== seq) return;
+        cb((res.data || []).map(mapper));
+        setFailing(table, false);
+      }).catch(function (e) {
+        if (mine === seq) setFailing(table, true);
+        throw e;
       });
     }
-    load();
+    load().catch(function () { /* reported through onSyncState */ });
+    var subscribedOnce = false;
     var channel = sb.channel(table + "-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: table }, load)
-      .subscribe();
-    return function () { sb.removeChannel(channel); };
+      .on("postgres_changes", { event: "*", schema: "public", table: table }, function () {
+        load().catch(function () { /* reported through onSyncState */ });
+      })
+      .subscribe(function (status) {
+        if (status !== "SUBSCRIBED") return;
+        if (subscribedOnce) load().catch(function () { /* reported through onSyncState */ });
+        subscribedOnce = true;
+      });
+    liveLoads[table] = load;
+    return function () {
+      seq++;   // a load still in flight must not deliver after this
+      sb.removeChannel(channel);
+      if (liveLoads[table] === load) delete liveLoads[table];
+      setFailing(table, false);
+    };
+  }
+
+  // Best effort: a leftover file is invisible, not broken. The storage
+  // policy only lets a photo go once no recipe points at it.
+  async function removePhoto(path) {
+    if (!path) return;
+    try { await sb.storage.from(PHOTO_BUCKET).remove([path]); } catch (e) { /* see above */ }
   }
 
   // Both LLM features go through the one structure-recipe function; `task`
@@ -201,6 +249,15 @@ export const Backend = (function () {
       check(await sb.rpc("set_member_status", { target: uid, new_status: status }));
     },
 
+    // Reload every open live table now — for when the app comes back to the
+    // foreground or online. Rejects if any of them failed.
+    refresh: async function () {
+      await Promise.all(Object.keys(liveLoads).map(function (t) { return liveLoads[t](); }));
+    },
+
+    // cb(true) once every live table loads again, cb(false) when one fails.
+    onSyncState: function (cb) { syncCb = cb; },
+
     onMembers: function (cb) { return liveTable("members", mapMember, cb); },
     onRecipes: function (cb) { return liveTable("recipes", mapRecipe, cb); },
     onRatings: function (cb) { return liveTable("ratings", mapRating, cb); },
@@ -241,10 +298,7 @@ export const Backend = (function () {
     deleteRecipe: async function (recipeId) {
       var res = check(await sb.from("recipes").delete().eq("id", recipeId).select("photo_path"));
       if (!res.data || !res.data.length) throw new Error("not allowed to delete this recipe");
-      var photo = res.data[0].photo_path;
-      if (photo) {
-        try { await sb.storage.from(PHOTO_BUCKET).remove([photo]); } catch (e) { /* see above */ }
-      }
+      await removePhoto(res.data[0].photo_path);
     },
 
     // The folder must be the uploader's own id — the storage policy in
@@ -265,8 +319,14 @@ export const Backend = (function () {
       return out;
     },
 
+    // The photo it replaces is removed from the bucket afterwards. If someone
+    // else swapped it in the meantime, the storage policy still only lets an
+    // unused file go, so nothing a recipe shows can be lost.
     setRecipePhoto: async function (recipeId, path) {
+      var old = check(await sb.from("recipes").select("photo_path").eq("id", recipeId).maybeSingle());
       check(await sb.from("recipes").update({ photo_path: path }).eq("id", recipeId));
+      var oldPath = old.data && old.data.photo_path;
+      if (oldPath !== path) await removePhoto(oldPath);
     },
 
     onShopping: function (cb) {

@@ -8,6 +8,7 @@ export var state = {
   ready: false,
   capsMissing: false,
   slowLoad: false,
+  syncFailed: false,     // a live table failed to reload: what's shown may be stale
   uid: null,
   myProfile: null,       // {id, email, name, role, status, isAdmin, joinedAt}
   auth: { mode: "signin", email: "", password: "", error: "", busy: false },

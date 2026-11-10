@@ -44,6 +44,7 @@ real recipe box. A badge in the corner shows when it is active.
 | `?mock&latency=800` | Slow every call down, to see the loading states |
 | `?mock&fail=connect` | Force the "Couldn't connect" screen |
 | `?mock&fail=auth` | Make every sign-in and sign-up fail |
+| `?mock&fail=sync` | Make refreshing fail, to see the "may be out of date" notice (switch tabs and back) |
 
 Open two tabs with different `user=` values to watch a rating appear in both
 at once — the mock emulates realtime through the `storage` event, the same

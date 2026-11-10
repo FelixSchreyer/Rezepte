@@ -439,14 +439,14 @@ describe("render — modals", function () {
     expect(chips[0].textContent).toBe("Acute — Moderate");
   });
 
-  it("opens a recipe in the form, filled in, from \"Edit\"", function () {
+  it("opens a recipe in the form, filled in, from \"Edit recipe\"", function () {
     setState({ recipes: SEED_RECIPES, modal: { type: "detail", recipeId: "r-congee", ratingStars: 0, ratingTol: "", ratingComment: "" } });
     render();
-    var edit = Array.from(root.querySelectorAll(".overlay button")).filter(function (b) { return b.textContent === "Edit"; })[0];
+    var edit = Array.from(root.querySelectorAll(".overlay button")).filter(function (b) { return b.textContent === "Edit recipe"; })[0];
     edit.click();
     var congee = SEED_RECIPES.filter(function (r) { return r.id === "r-congee"; })[0];
     expect(state.modal.editId).toBe("r-congee");
-    expect(root.textContent).toContain("Edit recipe");
+    expect(root.querySelector(".overlay h2").textContent).toBe("Edit recipe");
     expect(root.querySelector(".overlay input[type=text]").value).toBe(congee.title);
     expect(root.querySelector(".overlay select").value).toBe(congee.phases[0]);
     expect(root.querySelectorAll(".quick-fill")).toHaveLength(0);
@@ -500,7 +500,7 @@ describe("render — modals", function () {
   it("goes back to the recipe when editing is closed", function () {
     setState({ recipes: SEED_RECIPES, modal: { type: "detail", recipeId: "r-congee", ratingStars: 0, ratingTol: "", ratingComment: "" } });
     render();
-    Array.from(root.querySelectorAll(".overlay button")).filter(function (b) { return b.textContent === "Edit"; })[0].click();
+    Array.from(root.querySelectorAll(".overlay button")).filter(function (b) { return b.textContent === "Edit recipe"; })[0].click();
     root.querySelector(".overlay .close-x").click();
     expect(state.modal.type).toBe("detail");
     expect(state.modal.recipeId).toBe("r-congee");

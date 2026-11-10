@@ -11,3 +11,10 @@
 .auth-box { width: min(360px, 100%); }
 .auth-form { text-align: left; margin-top: 20px; }
 .auth-toggle { margin-top: 18px; }
+
+/* Above the recipes, while they may be out of date (see ui/screens.js). */
+.sync-notice {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 10px 14px; margin: 12px 0; font-size: 13.5px; color: var(--ink-soft);
+}

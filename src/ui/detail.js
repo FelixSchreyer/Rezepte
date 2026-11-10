@@ -23,10 +23,7 @@ export function renderDetail(m) {
 
   wrap.appendChild(el("div", { class: "panel-head" }, [
     el("h2", { text: r.title }),
-    el("div", { class: "panel-head-actions" }, [
-      el("button", { class: "btn btn-ghost btn-sm", attrs: { type: "button" }, text: "Edit", on: { click: function(){ openEditRecipe(r.id); } } }),
-      el("button", { class: "close-x", attrs: { "aria-label": "Close" }, text: "✕", on: { click: closeModal } })
-    ])
+    el("button", { class: "close-x", attrs: { "aria-label": "Close" }, text: "✕", on: { click: closeModal } })
   ]));
 
   wrap.appendChild(renderDetailPhoto(m, r));
@@ -88,9 +85,19 @@ export function renderDetail(m) {
     wrap.appendChild(el("div", { class: "helper-banner", text: "Only the patient role can rate recipes. Switch your role from the profile chip if that's you." }));
   }
 
-  if (canDelete(r)) wrap.appendChild(renderDeleteControl(m, r, rs.length));
+  wrap.appendChild(renderRecipeActions(m, r, rs.length));
 
   return wrap;
+}
+
+// Below the ratings, set apart by a rule: editing for every member, and
+// deleting for those allowed to.
+function renderRecipeActions(m, r, ratingCount) {
+  var box = el("div", { class: "detail-actions" }, [
+    el("button", { class: "btn btn-block", attrs: { type: "button" }, text: "Edit recipe", on: { click: function(){ openEditRecipe(r.id); } } })
+  ]);
+  if (canDelete(r)) box.appendChild(renderDeleteControl(m, r, ratingCount));
+  return box;
 }
 
 // Whoever added a recipe, or an admin — the same rule db/schema.sql enforces.
