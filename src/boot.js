@@ -7,7 +7,7 @@
 
 import { state } from "./state.js";
 import { Backend } from "./backend/index.js";
-import { isApproved } from "./lib/members.js";
+import { effectivePhase, isApproved } from "./lib/members.js";
 import { render } from "./ui/app.js";
 
 // Members are subscribed as soon as someone is signed in: a pending member
@@ -27,6 +27,8 @@ export function syncSubscriptions() {
       members.forEach(function (d) { map[d.id] = d; });
       state.members = map;
       if (state.uid && map[state.uid]) state.myProfile = map[state.uid];
+      // A patient's new status moves this filter (the newer pick wins).
+      state.activePhase = effectivePhase();
       syncSubscriptions();
       render();
     }));
@@ -107,8 +109,7 @@ export async function afterSignedIn(uid) {
   state.uid = uid;
   state.myProfile = await Backend.fetchProfile(uid);
 
-  var filterState = await Backend.fetchFilterState(uid);
-  if (filterState && filterState.lastPhase) state.activePhase = filterState.lastPhase;
+  state.activePhase = effectivePhase();   // refined once the members arrive
 
   syncSubscriptions();
   render();
@@ -128,6 +129,7 @@ export async function signOut() {
   state.photoUrlsAt = 0;
   state.syncFailed = false;
   state.activePhase = null;
+  state.phaseChoice = null;
   state.activeTags = {};
   state.search = "";
   state.modal = null;

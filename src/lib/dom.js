@@ -17,3 +17,14 @@ export function initials(name) {
   var parts = name.trim().split(/\s+/);
   return (parts[0][0] + (parts[1] ? parts[1][0] : "")).toUpperCase();
 }
+
+// "today 14:20", "Tue 14:20" within the last week, otherwise "3 Feb".
+export function sinceLabel(ts, now) {
+  var d = new Date(ts);
+  var today = new Date(now || Date.now());
+  var time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  if (d.toDateString() === today.toDateString()) return "today " + time;
+  var days = (today.getTime() - d.getTime()) / 86400000;
+  if (days < 6) return d.toLocaleDateString("en-GB", { weekday: "short" }) + " " + time;
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}

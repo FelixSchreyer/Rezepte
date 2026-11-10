@@ -85,7 +85,8 @@ describe("MockBackend — profiles", function () {
     var p = await MockBackend.fetchProfile(uid);
     expect(p).toEqual({
       id: uid, email: "jo@example.com", name: "Jo", role: "member",
-      status: "pending", isAdmin: false, joinedAt: 42, lastPhase: null
+      status: "pending", isAdmin: false, joinedAt: 42, lastPhase: null,
+      lastPhaseAt: 0, currentPhase: null, currentPhaseAt: 0
     });
   });
 
@@ -150,22 +151,35 @@ describe("MockBackend — member status", function () {
   });
 });
 
-describe("MockBackend — filter state", function () {
+describe("MockBackend — filter state and phase status", function () {
   beforeAll(reset);
 
-  it("is null before anything is saved", async function () {
-    expect(await MockBackend.fetchFilterState(ALEX)).toBeNull();
-  });
-
-  it("round-trips the last phase", async function () {
-    await MockBackend.saveFilterState(ALEX, { lastPhase: "moderate" });
-    expect(await MockBackend.fetchFilterState(ALEX)).toEqual({ lastPhase: "moderate" });
+  it("saves the last phase and when it was picked on the profile", async function () {
+    await MockBackend.saveFilterState(ALEX, { lastPhase: "moderate", lastPhaseAt: 123 });
+    var p = await MockBackend.fetchProfile(ALEX);
+    expect(p.lastPhase).toBe("moderate");
+    expect(p.lastPhaseAt).toBe(123);
   });
 
   it("goes back to null when the phase filter is cleared", async function () {
-    await MockBackend.saveFilterState(ALEX, { lastPhase: "moderate" });
-    await MockBackend.saveFilterState(ALEX, { lastPhase: null });
-    expect(await MockBackend.fetchFilterState(ALEX)).toBeNull();
+    await MockBackend.saveFilterState(ALEX, { lastPhase: null, lastPhaseAt: 124 });
+    expect((await MockBackend.fetchProfile(ALEX)).lastPhase).toBeNull();
+  });
+
+  it("shares a patient's status with every members subscriber", async function () {
+    var got = [];
+    var off = MockBackend.onMembers(function (rows) { got = rows; });
+    await MockBackend.setPhaseStatus(ALEX, "severe", 456);
+    off();
+    var alex = got.filter(function (m) { return m.id === ALEX; })[0];
+    expect(alex.currentPhase).toBe("severe");
+    expect(alex.currentPhaseAt).toBe(456);
+  });
+
+  it("leaves the filter alone when the status changes", async function () {
+    await MockBackend.saveFilterState(ALEX, { lastPhase: "remission", lastPhaseAt: 500 });
+    await MockBackend.setPhaseStatus(ALEX, "moderate", 600);
+    expect((await MockBackend.fetchProfile(ALEX)).lastPhase).toBe("remission");
   });
 });
 

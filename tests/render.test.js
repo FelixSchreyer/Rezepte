@@ -24,6 +24,7 @@ function setState(patch) {
   state.shopping = [];
   state.shoppingTidy = null;
   state.activePhase = null;
+  state.phaseChoice = null;
   state.activeTags = {};
   state.tagMenuOpen = false;
   state.photoUrls = {};
@@ -148,9 +149,64 @@ describe("render — the recipe shelves", function () {
   });
 });
 
+describe("render — phase status", function () {
+  var ALEX = "mock-user-alex";
+  function sam() { return { id: "mock-user-sam", name: "Sam Moreau", role: "member", status: "approved", isAdmin: false, joinedAt: 2 }; }
+  function patientWithStatus(phase) {
+    return { id: ALEX, name: "Alex Moreau", role: "patient", status: "approved", isAdmin: false, joinedAt: 1, currentPhase: phase, currentPhaseAt: Date.now() - 1000 };
+  }
+  function asSam(statusPhase, activePhase) {
+    var me = sam();
+    var members = {};
+    members[me.id] = me;
+    if (statusPhase) members[ALEX] = patientWithStatus(statusPhase);
+    setState({ recipes: SEED_RECIPES, uid: me.id, myProfile: me, members: members, activePhase: activePhase || null });
+  }
+  function select(node, value) { node.value = value; node.dispatchEvent(new Event("change")); }
+
+  it("shows a member nothing while no status is set", function () {
+    asSam(null);
+    render();
+    expect(root.querySelectorAll(".phase-status")).toHaveLength(0);
+  });
+
+  it("offers a member the way back when their filter differs from the status", function () {
+    asSam("moderate", "remission");
+    render();
+    expect(root.querySelector(".phase-status-hint").textContent).toContain("Alex: Moderate");
+    var show = root.querySelector(".phase-status-hint button");
+    expect(show.textContent).toBe("Show");
+    show.click();
+    expect(state.activePhase).toBe("moderate");
+    expect(root.querySelectorAll(".phase-status-hint button")).toHaveLength(0);
+  });
+
+  it("gives only the patient the status picker", function () {
+    asSam("moderate", "moderate");
+    render();
+    expect(root.querySelectorAll(".phase-status-select select")).toHaveLength(0);
+    setState({ recipes: SEED_RECIPES });   // Alex, a patient
+    render();
+    expect(root.querySelectorAll(".phase-status-select select")).toHaveLength(1);
+  });
+
+  it("moves the patient's own filter with their status, and not the other way round", function () {
+    setState({ recipes: SEED_RECIPES, activePhase: "remission" });
+    state.members[ALEX] = state.myProfile;
+    render();
+    select(root.querySelector(".phase-status-select select"), "severe");
+    expect(state.myProfile.currentPhase).toBe("severe");
+    expect(state.activePhase).toBe("severe");
+    select(root.querySelector(".phase-dropdown select"), "transition");
+    expect(state.activePhase).toBe("transition");
+    expect(state.myProfile.currentPhase).toBe("severe");
+  });
+});
+
 describe("render — filters and photos", function () {
   it("stacks phase, tag filter, search and recipes in that order", function () {
     setState({ recipes: SEED_RECIPES });
+    state.myProfile.role = "member";   // no status row: no patient status set
     render();
     var app = root.querySelector(".app");
     var order = Array.from(app.children).map(function (n) { return n.className.split(" ")[0]; });

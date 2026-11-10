@@ -8,7 +8,7 @@ import { isApproved } from "../lib/members.js";
 import { renderCapsMissing, renderLoading, renderPending, renderRejected, renderSyncNotice } from "./screens.js";
 import { renderAuth } from "./auth.js";
 import { renderHeader } from "./header.js";
-import { renderPhaseDropdown, renderTagFilter, renderSearch } from "./filters.js";
+import { renderPhaseDropdown, renderPhaseStatus, renderTagFilter, renderSearch } from "./filters.js";
 import { renderGrid, shelfScrollPositions, restoreShelfScroll } from "./grid.js";
 import { renderModal, snapshotModal, restoreModal } from "./modal.js";
 import { syncHistory } from "./navigation.js";
@@ -45,6 +45,8 @@ function draw() {
   app.appendChild(renderHeader());
   if (state.syncFailed) app.appendChild(renderSyncNotice());
   app.appendChild(renderPhaseDropdown());
+  var status = renderPhaseStatus();
+  if (status) app.appendChild(status);
   app.appendChild(renderTagFilter());
   app.appendChild(renderSearch());
   app.appendChild(renderGrid());

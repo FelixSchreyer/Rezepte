@@ -7,13 +7,14 @@
 var DAY = 24 * 60 * 60 * 1000;
 var T0 = Date.UTC(2026, 0, 12);
 
-// Alex is an approved patient *and* the admin; Jordan is waiting for approval,
-// so the admin panel has something to act on.
+// Alex is an approved patient *and* the admin, and has set a phase status
+// ("How I'm doing"), so everyone's filter starts on it; Jordan is waiting for
+// approval, so the admin panel has something to act on.
 export var SEED_MEMBERS = [
-  { id: "mock-user-alex",   email: "alex@example.com",   name: "Alex Moreau",   role: "patient", status: "approved", isAdmin: true,  joinedAt: T0,            lastPhase: null },
-  { id: "mock-user-sam",    email: "sam@example.com",    name: "Sam Moreau",    role: "member",  status: "approved", isAdmin: false, joinedAt: T0 + 1 * DAY,  lastPhase: null },
-  { id: "mock-user-robin",  email: "robin@example.com",  name: "Robin Okafor",  role: "member",  status: "approved", isAdmin: false, joinedAt: T0 + 3 * DAY,  lastPhase: null },
-  { id: "mock-user-jordan", email: "jordan@example.com", name: "Jordan Lindqvist", role: "member", status: "pending", isAdmin: false, joinedAt: T0 + 20 * DAY, lastPhase: null }
+  { id: "mock-user-alex",   email: "alex@example.com",   name: "Alex Moreau",   role: "patient", status: "approved", isAdmin: true,  joinedAt: T0,            lastPhase: null, lastPhaseAt: 0, currentPhase: "moderate", currentPhaseAt: T0 + 30 * DAY },
+  { id: "mock-user-sam",    email: "sam@example.com",    name: "Sam Moreau",    role: "member",  status: "approved", isAdmin: false, joinedAt: T0 + 1 * DAY,  lastPhase: null, lastPhaseAt: 0, currentPhase: null, currentPhaseAt: 0 },
+  { id: "mock-user-robin",  email: "robin@example.com",  name: "Robin Okafor",  role: "member",  status: "approved", isAdmin: false, joinedAt: T0 + 3 * DAY,  lastPhase: null, lastPhaseAt: 0, currentPhase: null, currentPhaseAt: 0 },
+  { id: "mock-user-jordan", email: "jordan@example.com", name: "Jordan Lindqvist", role: "member", status: "pending", isAdmin: false, joinedAt: T0 + 20 * DAY, lastPhase: null, lastPhaseAt: 0, currentPhase: null, currentPhaseAt: 0 }
 ];
 
 // Every seeded member can sign in with their email and this password.

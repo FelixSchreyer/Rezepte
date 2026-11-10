@@ -197,7 +197,10 @@ export const MockBackend = {
       status: "pending",
       isAdmin: false,
       joinedAt: profile.joinedAt,
-      lastPhase: null
+      lastPhase: null,
+      lastPhaseAt: 0,
+      currentPhase: null,
+      currentPhaseAt: 0
     };
     write(db);
     emit("members");
@@ -450,18 +453,24 @@ export const MockBackend = {
     return later();
   },
 
-  fetchFilterState: function (uid) {
-    var db = read();
-    var m = db.members[uid];
-    return later(m && m.lastPhase ? { lastPhase: m.lastPhase } : null);
-  },
-
   saveFilterState: function (uid, data) {
     var db = read();
     if (db.members[uid]) {
       db.members[uid].lastPhase = data.lastPhase;
+      db.members[uid].lastPhaseAt = data.lastPhaseAt;
       write(db);
+      emit("members");
     }
+    return later();
+  },
+
+  setPhaseStatus: function (uid, phase, at) {
+    var db = read();
+    if (!db.members[uid]) return failLater("no members row to update");
+    db.members[uid].currentPhase = phase;
+    db.members[uid].currentPhaseAt = at;
+    write(db);
+    emit("members");
     return later();
   }
 };

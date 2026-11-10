@@ -3,17 +3,92 @@
 
 import { PHASES, PHASE_MAP } from "../config.js";
 import { state } from "../state.js";
-import { el } from "../lib/dom.js";
+import { el, sinceLabel } from "../lib/dom.js";
 import { allTags, suitsPhase } from "../lib/recipes.js";
+import { effectivePhase, phaseStatus } from "../lib/members.js";
 import { Backend } from "../backend/index.js";
 import { render, renderGridInPlace } from "./app.js";
 
+// A pick of one's own: it holds until a patient sets a newer status (see
+// effectivePhase() in lib/members.js), so it is saved with when it was made.
 export function setActivePhase(id) {
   state.activePhase = id || null;
+  state.phaseChoice = { phase: state.activePhase, at: Date.now() };
   if (state.uid) {
-    Backend.saveFilterState(state.uid, { lastPhase: state.activePhase }).catch(function(){});
+    Backend.saveFilterState(state.uid, { lastPhase: state.activePhase, lastPhaseAt: state.phaseChoice.at }).catch(function(){});
   }
   render();
+}
+
+var statusError = "";
+
+// A patient's "How I'm doing": shared with everyone, and it moves every
+// filter onto that phase, the patient's own included. Shown at once; put
+// back if the save fails.
+export function setPhaseStatus(id) {
+  var me = state.myProfile;
+  var before = { phase: me.currentPhase || null, at: me.currentPhaseAt || 0 };
+  function apply(phase, at) {
+    me.currentPhase = phase;
+    me.currentPhaseAt = at;
+    if (state.members[state.uid]) {
+      state.members[state.uid].currentPhase = phase;
+      state.members[state.uid].currentPhaseAt = at;
+    }
+    state.activePhase = effectivePhase();
+  }
+  var at = Date.now();
+  statusError = "";
+  apply(id, at);
+  render();
+  Backend.setPhaseStatus(state.uid, id, at).catch(function(){
+    apply(before.phase, before.at);
+    statusError = "Couldn't share your status — check your connection and try again.";
+    render();
+  });
+}
+
+// Under the phase filter: the patient's own status picker, and for everyone
+// whose filter has moved away from the current status, a way back to it.
+// Nothing at all for a member while no status is set.
+export function renderPhaseStatus() {
+  var me = state.myProfile;
+  var isPatient = !!me && me.role === "patient";
+  var status = phaseStatus();
+  if (!isPatient && !status) return null;
+
+  var box = el("div", { class: "phase-status" });
+  var showBtn = status && state.activePhase !== status.phase
+    ? el("button", { class: "btn btn-ghost btn-sm", attrs: { type: "button" }, text: "Show", on: { click: function(){ setActivePhase(status.phase); } } })
+    : null;
+  var mine = status && status.member.id === state.uid;
+
+  if (isPatient) {
+    var select = el("select", { attrs: { "aria-label": "How I'm doing" } });
+    var myPhase = me.currentPhase || "";
+    if (!myPhase) select.appendChild(el("option", { text: "Not set", attrs: { value: "", disabled: "" } }));
+    PHASES.forEach(function(p){ select.appendChild(el("option", { text: p.label, attrs: { value: p.id } })); });
+    select.value = myPhase;
+    select.addEventListener("change", function(e){ setPhaseStatus(e.target.value); });
+    box.appendChild(el("div", { class: "phase-status-row" }, [
+      el("span", { class: "lbl-inline", text: "How I'm doing" }),
+      el("span", { class: "phase-status-select" }, [select]),
+      myPhase ? el("span", { class: "phase-status-since", text: "since " + sinceLabel(me.currentPhaseAt) }) : null
+    ]));
+  }
+
+  // Another patient's status, or one's own when the filter has moved off it.
+  if (status && (!mine || showBtn)) {
+    var who = mine ? "Your status" : status.member.name.split(" ")[0];
+    box.appendChild(el("div", { class: "phase-status-row phase-status-hint" }, [
+      el("span", { class: "phase-status-dot", style: "background:" + PHASE_MAP[status.phase].color }),
+      el("span", { text: who + ": " + PHASE_MAP[status.phase].short + " · since " + sinceLabel(status.at) }),
+      showBtn
+    ]));
+  }
+
+  if (statusError) box.appendChild(el("div", { class: "form-error", style: "margin:6px 0 0;", text: statusError }));
+  return box;
 }
 
 export function renderPhaseDropdown() {

@@ -15,7 +15,10 @@ create table if not exists public.members (
   role text not null check (role in ('member', 'patient')),
   status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
   is_admin boolean not null default false,
-  last_phase text,
+  last_phase text,         -- this person's phase filter, and when they picked it
+  last_phase_at bigint,
+  current_phase text,      -- a patient's status ("How I'm doing"), and when it was set
+  current_phase_at bigint,
   joined_at bigint,
   created_at timestamptz not null default now()
 );
@@ -57,7 +60,7 @@ create policy "members: insert own pending row only"
   );
 
 -- Which columns may be updated is limited by the grants further down
--- (name, role, last_phase) — status and is_admin are not among them.
+-- (name, role and the phase columns) — status and is_admin are not among them.
 create policy "members: update own row only"
   on public.members for update
   using (id = auth.uid())
@@ -179,7 +182,7 @@ revoke all on public.members, public.recipes, public.ratings, public.shopping_it
 
 grant usage on schema public to authenticated;
 grant select, insert on public.members to authenticated;
-grant update (name, role, last_phase) on public.members to authenticated;
+grant update (name, role, last_phase, last_phase_at, current_phase, current_phase_at) on public.members to authenticated;
 grant select, insert on public.recipes to authenticated;
 grant update (title, phases, tags, ingredients, instructions, prep_minutes, servings, photo_path) on public.recipes to authenticated;
 grant delete on public.recipes to authenticated;

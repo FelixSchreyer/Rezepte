@@ -13,7 +13,10 @@ export function mapMember(row) {
     status: row.status,
     isAdmin: !!row.is_admin,
     joinedAt: row.joined_at,
-    lastPhase: row.last_phase
+    lastPhase: row.last_phase,
+    lastPhaseAt: row.last_phase_at || 0,
+    currentPhase: row.current_phase || null,
+    currentPhaseAt: row.current_phase_at || 0
   };
 }
 

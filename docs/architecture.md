@@ -86,8 +86,8 @@ addRecipe(data)                    -> Promise<void>
 updateRecipe(recipeId, data)       -> Promise<void>
 deleteRecipe(recipeId)             -> Promise<void>   (whoever added it, or an admin)
 upsertRating(recipeId, uid, data)  -> Promise<void>
-fetchFilterState(uid)              -> Promise<Object | null>
-saveFilterState(uid, data)         -> Promise<void>
+saveFilterState(uid, { lastPhase, lastPhaseAt }) -> Promise<void>
+setPhaseStatus(uid, phase, at)     -> Promise<void>   (a patient's "How I'm doing")
 ```
 
 Rows are mapped to camelCase app objects on the way out and back to columns on
@@ -131,7 +131,8 @@ may change someone else's status.
 4. `Backend.getUid()` restores a stored session, verified with the server.
    `null` means signed out → the sign-in / create-account screen (`ui/auth.js`),
    which calls `afterSignedIn()` on success.
-5. `afterSignedIn()` loads the profile and last-used phase filter, then calls
+5. `afterSignedIn()` loads the profile, sets the phase filter from it (see
+   Phase status), then calls
    `syncSubscriptions()`: members right away, recipes and ratings only once
    the profile is approved (see Access below). Flags guard against a retry
    double-subscribing; `signOut()` tears everything down and resets `state`.
@@ -200,6 +201,29 @@ and `render()` swaps in the app.
 admin. Only `patient` sees the rating form — the app states this in a banner
 rather than hiding it silently. This is a UI convention, not a security
 boundary: the RLS policies let any approved member insert their own rating.
+
+## Phase status
+
+A patient sets "How I'm doing" under the phase filter. That status moves
+everyone's filter onto that phase, the patient's own included; anyone can
+then pick another phase, and that pick holds until the patient sets a new
+status. The patient browsing other phases does not change the status.
+
+Nothing writes to anyone else's row (RLS would not let it). Each members row
+carries `last_phase` + `last_phase_at` (this person's own pick) and, for a
+patient, `current_phase` + `current_phase_at` (their status). Every device
+works its filter out itself — `effectivePhase()` in `lib/members.js`:
+whichever is newer, its own pick or the newest status of an approved
+patient (`phaseStatus()`), wins. The status arrives through the members
+subscription, so filters move live. `state.phaseChoice` holds a pick made on
+this device until the server echoes it, so a members update in between
+cannot snap the filter back.
+
+Timestamps are the devices' `Date.now()`, like every other timestamp here;
+phones keep their clocks within seconds, and these picks are hours apart.
+A status can be changed but not cleared: clearing would send everyone who
+followed it back to their older pick. Setting `current_phase` is a patient's
+thing by UI convention only, like rating (see Roles).
 
 ## Photos
 

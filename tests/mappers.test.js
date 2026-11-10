@@ -12,11 +12,20 @@ describe("mapMember", function () {
   it("renames the snake_case columns", function () {
     expect(mapMember({
       id: "u1", email: "a@x.org", name: "Alex", role: "patient", status: "approved", is_admin: true,
-      joined_at: 1700000000000, last_phase: "moderate"
+      joined_at: 1700000000000, last_phase: "moderate", last_phase_at: 5,
+      current_phase: "severe", current_phase_at: 6
     })).toEqual({
       id: "u1", email: "a@x.org", name: "Alex", role: "patient", status: "approved", isAdmin: true,
-      joinedAt: 1700000000000, lastPhase: "moderate"
+      joinedAt: 1700000000000, lastPhase: "moderate", lastPhaseAt: 5,
+      currentPhase: "severe", currentPhaseAt: 6
     });
+  });
+
+  it("turns missing phase timestamps into 0 and a missing status into null", function () {
+    var m = mapMember({ id: "u1", name: "Alex", role: "patient", last_phase_at: null, current_phase: null });
+    expect(m.lastPhaseAt).toBe(0);
+    expect(m.currentPhase).toBeNull();
+    expect(m.currentPhaseAt).toBe(0);
   });
 
   it("turns a missing is_admin into false", function () {

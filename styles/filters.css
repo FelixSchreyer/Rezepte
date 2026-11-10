@@ -113,3 +113,23 @@
 @media (max-width: 520px) {
   .search-wrap input, .phase-dropdown select { font-size: 16px; }
 }
+
+/* Under the phase filter: the patient's "How I'm doing" and the hint that
+   leads back to the current status (see renderPhaseStatus). */
+.phase-status { margin-top: 8px; }
+.phase-status + .phase-row { margin-top: 10px; }
+.phase-status-row {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px;
+  font-size: 13px; color: var(--ink-soft);
+}
+.phase-status-row + .phase-status-row { margin-top: 4px; }
+.phase-status-row .lbl-inline { font-weight: 600; flex: none; }
+.phase-status-select select {
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface); color: var(--ink);
+  font-family: inherit; font-size: 13.5px; font-weight: 600;
+  padding: 6px 10px; cursor: pointer;
+}
+.phase-status-since { color: var(--ink-faint); }
+.phase-status-hint { min-height: 30px; }
+.phase-status-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }

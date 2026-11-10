@@ -46,8 +46,8 @@ import { blobToBase64 } from "../lib/photos.js";
  *                                   images: JPEG Blobs of a printed/handwritten recipe (optional, up to 3)
  *                                   (rejects with .code "rate" | "busy" | "large" | "missing" | "denied" | "failed")
  *   upsertRating(recipeId, uid, data) -> Promise<void>
- *   fetchFilterState(uid)        -> Promise<Object | null>
- *   saveFilterState(uid, data)   -> Promise<void>
+ *   saveFilterState(uid, { lastPhase, lastPhaseAt }) -> Promise<void>
+ *   setPhaseStatus(uid, phase | null, at) -> Promise<void>   (a patient's "How I'm doing")
  *
  * Every write rejects on failure. supabase-js itself never throws for a
  * refused query — it resolves with `{ error }` — so each write goes through
@@ -375,15 +375,16 @@ export const Backend = (function () {
       }, { onConflict: "recipe_id,uid" }));
     },
 
-    // Private-in-practice per-viewer preference (which phase they last
-    // browsed), stored as a nullable column on their own members row.
-    fetchFilterState: async function (uid) {
-      var profile = await this.fetchProfile(uid);
-      return (profile && profile.lastPhase) ? { lastPhase: profile.lastPhase } : null;
+    // Which phase this person last picked, and when — on their own members
+    // row, which the profile already carries back.
+    saveFilterState: async function (uid, data) {
+      check(await sb.from("members").update({ last_phase: data.lastPhase, last_phase_at: data.lastPhaseAt }).eq("id", uid));
     },
 
-    saveFilterState: async function (uid, data) {
-      check(await sb.from("members").update({ last_phase: data.lastPhase }).eq("id", uid));
+    // A patient's status, shared with everyone through the members table.
+    // null clears it. See phaseStatus() in lib/members.js.
+    setPhaseStatus: async function (uid, phase, at) {
+      check(await sb.from("members").update({ current_phase: phase, current_phase_at: at }).eq("id", uid));
     }
   };
 })();

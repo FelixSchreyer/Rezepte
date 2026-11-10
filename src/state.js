@@ -20,6 +20,7 @@ export var state = {
   shopping: [],          // [{recipeId, people, addedBy, addedAt}] — the family's list
   shoppingTidy: null,    // {source, items}: the AI-tidied list, while it still matches
   activePhase: null,
+  phaseChoice: null,     // {phase, at}: this device's latest own phase pick (see effectivePhase)
   activeTags: {},        // tag -> true
   tagMenuOpen: false,    // tag filter dropdown
   search: "",

@@ -36,7 +36,7 @@ real recipe box. A badge in the corner shows when it is active.
 | URL | |
 | --- | --- |
 | `?mock` | Start at the sign-in screen. Seeded accounts: `alex@`, `sam@`, `robin@`, `jordan@example.com`, password `password` |
-| `?mock&user=alex` | Signed in as Alex — an approved *patient* and the *admin* |
+| `?mock&user=alex` | Signed in as Alex — an approved *patient* and the *admin*, with a phase status set |
 | `?mock&user=sam` | Signed in as Sam — an approved *member*, so rating is hidden |
 | `?mock&user=jordan` | Signed in as Jordan — still *waiting for approval* |
 | `?mock&user=nobody` | An account with no profile yet, which lands you in onboarding |
@@ -121,6 +121,9 @@ db/
   reset.sql         Deletes all tables, data and logins, before a fresh schema.sql
   migrate-002-photos.sql  Adds recipe photos to a project set up before them
   migrate-003-shopping.sql  Adds servings and the shared shopping list
+  migrate-004-edit-recipes.sql  Lets approved members edit a saved recipe
+  migrate-005-delete-recipes.sql  Lets whoever added a recipe, or an admin, delete it
+  migrate-006-phase-status.sql  Adds the patient's phase status ("How I'm doing")
 docs/
   architecture.md   How the pieces fit together
 ```
@@ -152,7 +155,9 @@ row-level security and the `set_member_status()` function in
 2. **Same page → Anonymous Sign-Ins:** switched **off**. The app no longer uses them.
 3. **SQL Editor:** run [db/schema.sql](db/schema.sql). On a project that already
    has the tables, run [db/reset.sql](db/reset.sql) first — it **deletes all
-   recipes, ratings, members and logins**.
+   recipes, ratings, members and logins**. To bring an existing project up to
+   date *without* losing data, run the `db/migrate-*.sql` files it is missing
+   instead, in order — each is safe to run twice.
 4. **The first admin:** create your own account in the app, then run the snippet
    at the end of `schema.sql` with your email. Further admins the same way.
 
