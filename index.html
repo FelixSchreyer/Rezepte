@@ -8,6 +8,9 @@
      and the browser-tab icon. Both drawn from icons/icon.svg. -->
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<!-- Makes "Add to Home Screen" a standalone web app — on iOS the only kind
+     that may receive push (the daily check-in reminder, see sw.js). -->
+<link rel="manifest" href="manifest.webmanifest">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -25,6 +28,7 @@
 <link rel="stylesheet" href="styles/detail.css">
 <link rel="stylesheet" href="styles/account.css">
 <link rel="stylesheet" href="styles/shopping.css">
+<link rel="stylesheet" href="styles/checkin.css">
 <link rel="stylesheet" href="styles/states.css">
 </head>
 <body>

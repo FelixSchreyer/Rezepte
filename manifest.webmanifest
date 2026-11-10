@@ -1,0 +1,13 @@
+{
+  "name": "Gut & Grain",
+  "short_name": "Gut & Grain",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#F1F3EC",
+  "theme_color": "#4C6B4A",
+  "icons": [
+    { "src": "icons/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

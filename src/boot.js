@@ -9,6 +9,9 @@ import { state } from "./state.js";
 import { Backend } from "./backend/index.js";
 import { effectivePhase, isApproved } from "./lib/members.js";
 import { render } from "./ui/app.js";
+import { openCheckin } from "./ui/modal.js";
+import { isPatient } from "./lib/checkins.js";
+import { onReminderTap } from "./lib/push.js";
 
 // Members are subscribed as soon as someone is signed in: a pending member
 // can see their own row, and that is how they notice being approved.
@@ -46,6 +49,14 @@ export function syncSubscriptions() {
     }));
     unsubscribers.push(Backend.onShopping(function (items) {
       state.shopping = items;
+      render();
+    }));
+    unsubscribers.push(Backend.onCookEvents(function (events) {
+      state.cookEvents = events;
+      render();
+    }));
+    unsubscribers.push(Backend.onCheckins(function (checkins) {
+      state.checkins = checkins;
       render();
     }));
   }
@@ -98,6 +109,24 @@ document.addEventListener("visibilitychange", function () {
 });
 window.addEventListener("online", refreshNow);
 
+// Tapping the daily reminder opens the app at ?checkin=<day> — or, when the
+// app is already open, the service worker sends the day over (see sw.js).
+// The parameter is dropped from the address straight away, so a reload
+// doesn't ask again.
+function takeCheckinParam() {
+  var params = new URLSearchParams(window.location.search);
+  var day = params.get("checkin");
+  if (day === null) return null;
+  params.delete("checkin");
+  var qs = params.toString();
+  history.replaceState(history.state, "", window.location.pathname + (qs ? "?" + qs : "") + window.location.hash);
+  return day;
+}
+
+onReminderTap(function (day) {
+  if (isPatient()) openCheckin(day);
+});
+
 function clearSubscriptions() {
   unsubscribers.forEach(function (off) { off(); });
   unsubscribers = [];
@@ -112,7 +141,9 @@ export async function afterSignedIn(uid) {
   state.activePhase = effectivePhase();   // refined once the members arrive
 
   syncSubscriptions();
-  render();
+  var checkinDay = takeCheckinParam();
+  if (checkinDay !== null && isPatient()) openCheckin(checkinDay);
+  else render();
 }
 
 export async function signOut() {
@@ -125,6 +156,8 @@ export async function signOut() {
   state.ratings = [];
   state.shopping = [];
   state.shoppingTidy = null;
+  state.cookEvents = [];
+  state.checkins = [];
   state.photoUrls = {};
   state.photoUrlsAt = 0;
   state.syncFailed = false;

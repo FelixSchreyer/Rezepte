@@ -5,7 +5,8 @@
   display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--ink);
 }
 .field .hint { font-weight: 400; color: var(--ink-faint); font-size: 12px; }
-input[type=text], input[type=email], input[type=password], input[type=number], textarea, select {
+input[type=text], input[type=email], input[type=password], input[type=number],
+input[type=time], input[type=datetime-local], textarea, select {
   width: 100%;
   padding: 10px 12px;
   border-radius: 8px;
@@ -21,7 +22,7 @@ textarea { resize: vertical; min-height: 84px; line-height: 1.4; }
    and the zoomed page can then be dragged sideways. */
 @media (max-width: 520px) {
   input[type=text], input[type=email], input[type=password], input[type=number],
-  textarea, select { font-size: 16px; }
+  input[type=time], input[type=datetime-local], textarea, select { font-size: 16px; }
 }
 
 .check-grid { display: flex; flex-wrap: wrap; gap: 8px; }

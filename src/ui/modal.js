@@ -10,8 +10,10 @@ import { renderAddForm } from "./add-recipe.js";
 import { renderDetail } from "./detail.js";
 import { renderAccount } from "./account.js";
 import { renderShopping } from "./shopping.js";
+import { renderCheckin } from "./checkin.js";
 import { attachSwipeBack } from "./navigation.js";
 import { recipePhases } from "../lib/recipes.js";
+import { dayKey, isDayKey } from "../lib/checkins.js";
 
 // Editing a recipe sits on top of its detail panel, so closing it goes back
 // there rather than to the recipes.
@@ -52,8 +54,16 @@ export function openShopping() {
   render();
 }
 
+// "How are you today?" for `day` (a dayKey; today when missing, malformed
+// or in the future — the reminder link carries it, see sw.js).
+export function openCheckin(day) {
+  var today = dayKey(Date.now());
+  state.modal = { type: "checkin", day: isDayKey(day) && day <= today ? day : today, saving: "", error: "" };
+  render();
+}
+
 // The account panel: a menu plus the pages it drills into — "menu",
-// "ratings", "members" or "details". name/role are the details form's draft.
+// "ratings", "members", "details" or "reminder". name/role are the details form's draft.
 export function openAccount(view) {
   var me = state.myProfile || {};
   state.modal = { type: "account", view: view || "menu", name: me.name || "", role: me.role || "", error: "" };
@@ -72,6 +82,7 @@ export function renderModal() {
   else if (m.type === "detail") panel.appendChild(renderDetail(m));
   else if (m.type === "account") panel.appendChild(renderAccount(m));
   else if (m.type === "shopping") panel.appendChild(renderShopping(m));
+  else if (m.type === "checkin") panel.appendChild(renderCheckin(m));
   overlay.appendChild(panel);
   return overlay;
 }
@@ -80,7 +91,7 @@ export function renderModal() {
 // (a star tapped, a rating saved and synced back). A different key is a new
 // panel — another recipe, another account page — which starts at the top.
 function modalKey(m) {
-  return m.type + ":" + (m.recipeId || m.editId || m.view || "");
+  return m.type + ":" + (m.recipeId || m.editId || m.view || m.day || "");
 }
 
 // Re-rendering the same panel must not look like opening it again: no

@@ -16,7 +16,8 @@ export function mapMember(row) {
     lastPhase: row.last_phase,
     lastPhaseAt: row.last_phase_at || 0,
     currentPhase: row.current_phase || null,
-    currentPhaseAt: row.current_phase_at || 0
+    currentPhaseAt: row.current_phase_at || 0,
+    checkinTime: row.checkin_time || null
   };
 }
 
@@ -55,6 +56,27 @@ export function mapRating(row) {
     stars: row.stars,
     tolerance: row.tolerance,
     comment: row.comment,
+    createdAt: row.created_at
+  };
+}
+
+export function mapCookEvent(row) {
+  return {
+    id: row.id,
+    recipeId: row.recipe_id,
+    cookedAt: row.cooked_at,
+    cookedBy: row.cooked_by,
+    createdAt: row.created_at
+  };
+}
+
+export function mapCheckin(row) {
+  return {
+    id: row.id,
+    uid: row.uid,
+    day: row.day,
+    state: row.state,
+    phase: row.phase || null,
     createdAt: row.created_at
   };
 }

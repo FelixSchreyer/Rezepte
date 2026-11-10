@@ -19,6 +19,7 @@ create table if not exists public.members (
   last_phase_at bigint,
   current_phase text,      -- a patient's status ("How I'm doing"), and when it was set
   current_phase_at bigint,
+  checkin_time text,       -- a patient's daily check-in reminder, local "HH:MM" (null = 20:00)
   joined_at bigint,
   created_at timestamptz not null default now()
 );
@@ -173,21 +174,95 @@ create policy "shopping: approved members change"
 create policy "shopping: approved members remove"
   on public.shopping_items for delete using (public.is_approved());
 
+-- ---------- cook events ("Cooked" on a recipe) ----------
+-- What was eaten when: a "Cooked" counts as eaten by the patient. Anyone may
+-- log one; only whoever logged it may move or remove it (Undo).
+create table if not exists public.cook_events (
+  id uuid primary key default gen_random_uuid(),
+  recipe_id uuid not null references public.recipes(id) on delete cascade,
+  cooked_at bigint not null,
+  cooked_by uuid references auth.users(id) on delete set null,
+  created_at bigint not null
+);
+
+alter table public.cook_events enable row level security;
+
+create policy "cook events: approved members read"
+  on public.cook_events for select using (public.is_approved());
+create policy "cook events: approved members add, as themselves"
+  on public.cook_events for insert with check (public.is_approved() and cooked_by = auth.uid());
+create policy "cook events: change own"
+  on public.cook_events for update
+  using (public.is_approved() and cooked_by = auth.uid())
+  with check (public.is_approved() and cooked_by = auth.uid());
+create policy "cook events: remove own"
+  on public.cook_events for delete using (public.is_approved() and cooked_by = auth.uid());
+
+-- ---------- check-ins (how the patient was doing, one row per day) ----------
+-- `day` is the patient's local date ("2026-11-10"); `phase` is their phase
+-- status at the time, which keeps the phase history alongside.
+create table if not exists public.checkins (
+  id uuid primary key default gen_random_uuid(),
+  uid uuid not null references auth.users(id) on delete cascade,
+  day text not null check (day ~ '^\d{4}-\d{2}-\d{2}$'),
+  state text not null check (state in ('good', 'medium', 'poor')),
+  phase text,
+  created_at bigint not null,
+  unique (uid, day)
+);
+
+alter table public.checkins enable row level security;
+
+create policy "checkins: approved members read"
+  on public.checkins for select using (public.is_approved());
+create policy "checkins: insert own"
+  on public.checkins for insert with check (public.is_approved() and uid = auth.uid());
+create policy "checkins: update own"
+  on public.checkins for update
+  using (public.is_approved() and uid = auth.uid())
+  with check (public.is_approved() and uid = auth.uid());
+
+-- ---------- push subscriptions (one per device with reminders on) ----------
+-- Read by the daily-checkin Edge Function with the service-role key; each
+-- person only ever sees their own rows. The function and the cron job that
+-- calls it are set up as described in supabase/functions/daily-checkin.
+create table if not exists public.push_subscriptions (
+  endpoint text primary key,
+  uid uuid not null references auth.users(id) on delete cascade,
+  p256dh text not null,
+  auth text not null,
+  tz text not null default 'Europe/Berlin',
+  last_sent_day text,
+  created_at bigint not null
+);
+
+alter table public.push_subscriptions enable row level security;
+
+create policy "push: own rows only"
+  on public.push_subscriptions for all
+  using (uid = auth.uid())
+  with check (uid = auth.uid() and public.is_approved());
+
 -- ---------- table privileges ----------
 -- RLS policies above decide *which rows*; these grants decide whether a role
 -- may touch a table or column at all. Some Supabase projects grant everything
 -- to anon/authenticated by default, others nothing — so start from nothing
 -- and grant exactly what the app needs. `anon` (not signed in) gets nothing.
-revoke all on public.members, public.recipes, public.ratings, public.shopping_items from anon, authenticated;
+revoke all on public.members, public.recipes, public.ratings, public.shopping_items,
+  public.cook_events, public.checkins, public.push_subscriptions from anon, authenticated;
 
 grant usage on schema public to authenticated;
 grant select, insert on public.members to authenticated;
-grant update (name, role, last_phase, last_phase_at, current_phase, current_phase_at) on public.members to authenticated;
+grant update (name, role, last_phase, last_phase_at, current_phase, current_phase_at, checkin_time) on public.members to authenticated;
 grant select, insert on public.recipes to authenticated;
 grant update (title, phases, tags, ingredients, instructions, prep_minutes, servings, photo_path) on public.recipes to authenticated;
 grant delete on public.recipes to authenticated;
 grant select, insert, update on public.ratings to authenticated;
 grant select, insert, update, delete on public.shopping_items to authenticated;
+grant select, insert, delete on public.cook_events to authenticated;
+grant update (cooked_at) on public.cook_events to authenticated;
+grant select, insert, update on public.checkins to authenticated;
+grant select, insert, update, delete on public.push_subscriptions to authenticated;
 
 revoke execute on function public.set_member_status(uuid, text) from public, anon;
 grant execute on function public.set_member_status(uuid, text) to authenticated;
@@ -229,6 +304,8 @@ alter publication supabase_realtime add table public.members;
 alter publication supabase_realtime add table public.recipes;
 alter publication supabase_realtime add table public.ratings;
 alter publication supabase_realtime add table public.shopping_items;
+alter publication supabase_realtime add table public.cook_events;
+alter publication supabase_realtime add table public.checkins;
 
 -- ---------- the first admin ----------
 -- Register in the app first, then run this once with your own email.

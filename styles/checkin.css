@@ -1,0 +1,66 @@
+/* "Cooked" in the recipe detail, the daily check-in panel and the
+   "Daily reminder" account page. */
+
+/* ✓ Cooked  Last cooked today 19:12 */
+.detail-cook {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px;
+  margin-top: 10px;
+}
+.detail-cook-last,
+.detail-cook-note { font-size: 13px; color: var(--ink-faint); }
+.detail-cook-note { color: var(--ink-soft); }
+.detail-cook-note .link-btn { font-size: 13px; }
+
+/* Holding the button: a bar fills along its bottom edge, and iOS's own
+   long-press reactions (text selection, the callout menu) stay away. */
+.cook-btn {
+  position: relative; overflow: hidden;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none; user-select: none;
+  touch-action: manipulation;
+}
+.cook-btn::after {
+  content: ""; position: absolute; left: 0; bottom: 0;
+  height: 3px; width: 0;
+  background: var(--accent);
+}
+/* The delay keeps an ordinary tap from flashing the bar; 100 + 400 ms
+   matches HOLD_MS in ui/detail.js. */
+.cook-btn.pressing::after { width: 100%; transition: width 400ms linear 100ms; }
+
+.cook-picker {
+  flex-basis: 100%;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface); padding: 12px;
+}
+.cook-picker-q { font-size: 13.5px; font-weight: 600; margin-bottom: 8px; }
+.cook-picker-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.cook-picker-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cook-picker-row input { flex: 1 1 100%; min-width: 0; }
+
+/* Check-in: three big answers side by side. */
+.checkin-choices { display: flex; gap: 10px; margin-top: 8px; }
+.checkin-choice {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 18px 6px 14px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface); color: var(--ink-soft);
+  font: inherit; font-weight: 600; font-size: 14px;
+  cursor: pointer;
+}
+.checkin-choice .emoji { font-size: 40px; line-height: 1; }
+.checkin-choice[data-on="true"] { border-color: var(--ink); color: var(--ink); background: var(--surface-sunk); }
+.checkin-cooked { font-size: 13.5px; color: var(--ink-faint); margin: 18px 0 0; }
+.checkin-other { margin-top: 12px; font-size: 13.5px; }
+
+/* Daily reminder page. */
+.reminder-lede { font-size: 14px; color: var(--ink-soft); margin: 0 0 18px; }
+.reminder-h {
+  font-family: var(--serif); font-size: 15px; font-weight: 600;
+  color: var(--ink-soft); margin: 22px 0 8px;
+}
+.reminder-note { font-size: 13.5px; color: var(--ink-soft); margin: 0 0 12px; }
+.reminder-time { max-width: 160px; }
+/* The native time and date pickers follow the app's light or dark scheme. */
+.cook-picker input, .reminder-time { color-scheme: light dark; }

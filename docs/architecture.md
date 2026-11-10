@@ -290,6 +290,32 @@ and can be undone; it is per device, not shared.
 A web page can't write to Reminders itself; each person sets the Shortcut up
 once, and the steps are in the panel.
 
+## Cooked and the daily check-in
+
+Groundwork for spotting later which foods go with bad days, possibly with a
+delay of a day or more. That needs two time series kept apart, rather than a
+verdict per recipe (which is what a rating is):
+
+- **What was eaten when** — `cook_events`. "Cooked" on a recipe, pressed by
+  anyone in the family, counts as eaten by the patient. A tap logs it for
+  now; holding the button (or "Change time" in the note that follows) picks
+  another time, for leftovers or a late entry. Only whoever logged an event
+  may move or undo it.
+- **How the patient was doing each day** — `checkins`, one row per patient
+  and local day (`"2026-11-10"`), `good` / `medium` / `poor` like the
+  tolerance ids. Each row also keeps the patient's phase status at the time,
+  since `members` only holds the current one.
+
+The check-in is asked once a day. In the app, `checkinDue()` in
+`lib/checkins.js` puts a count on the avatar once it's past the patient's
+`checkin_time` (default 20:00) and today has no answer. With push set up,
+the `daily-checkin` Edge Function also sends a notification at that time.
+pg_cron calls it every 15 minutes, and it sends once per device and day,
+at most 3 hours late, and only while there is no check-in yet. Tapping the
+notification opens `?checkin=<day>`, or, if the app is already open, `sw.js`
+posts the day to it. `sw.js` has no fetch handler on purpose: nothing is
+cached, so deploys show up as they did before.
+
 ## The account panel
 
 The avatar in the header opens a settings-style panel (`ui/account.js`): a

@@ -1,5 +1,5 @@
 import { SUPABASE_URL, SUPABASE_KEY } from "../config.js";
-import { mapMember, mapRecipe, mapRating, mapShoppingItem } from "./mappers.js";
+import { mapMember, mapRecipe, mapRating, mapShoppingItem, mapCookEvent, mapCheckin } from "./mappers.js";
 import { blobToBase64 } from "../lib/photos.js";
 
 /**
@@ -48,6 +48,15 @@ import { blobToBase64 } from "../lib/photos.js";
  *   upsertRating(recipeId, uid, data) -> Promise<void>
  *   saveFilterState(uid, { lastPhase, lastPhaseAt }) -> Promise<void>
  *   setPhaseStatus(uid, phase | null, at) -> Promise<void>   (a patient's "How I'm doing")
+ *   setCheckinTime(uid, "HH:MM")  -> Promise<void>   (when the daily check-in reminder goes out)
+ *   onCookEvents(cb)             -> unsubscribe();  cb(Array<{id, recipeId, cookedAt, cookedBy}>)
+ *   addCookEvent(recipeId, uid, cookedAt) -> Promise<id>
+ *   moveCookEvent(id, cookedAt)  -> Promise<void>   (own events only)
+ *   deleteCookEvent(id)          -> Promise<void>   (own events only — Undo)
+ *   onCheckins(cb)               -> unsubscribe();  cb(Array<{id, uid, day, state, phase}>)
+ *   saveCheckin(uid, day, state, phase) -> Promise<void>   (one per person and day; a second replaces it)
+ *   savePushSubscription(uid, { endpoint, p256dh, auth, tz }) -> Promise<void>
+ *   deletePushSubscription(endpoint) -> Promise<void>
  *
  * Every write rejects on failure. supabase-js itself never throws for a
  * refused query — it resolves with `{ error }` — so each write goes through
@@ -63,7 +72,8 @@ import { blobToBase64 } from "../lib/photos.js";
  *
  * BACKEND: Supabase (Postgres + Auth + Realtime).
  * Schema: see db/schema.sql (tables: members, recipes, ratings,
- * shopping_items; row-level security policies; realtime enabled on all four).
+ * shopping_items, cook_events, checkins, push_subscriptions; row-level
+ * security policies; realtime on all but push_subscriptions).
  */
 export const Backend = (function () {
   var sb = null;
@@ -385,6 +395,49 @@ export const Backend = (function () {
     // null clears it. See phaseStatus() in lib/members.js.
     setPhaseStatus: async function (uid, phase, at) {
       check(await sb.from("members").update({ current_phase: phase, current_phase_at: at }).eq("id", uid));
+    },
+
+    setCheckinTime: async function (uid, time) {
+      check(await sb.from("members").update({ checkin_time: time }).eq("id", uid));
+    },
+
+    onCookEvents: function (cb) { return liveTable("cook_events", mapCookEvent, cb); },
+
+    // The new row's id comes back, so the "Cooked" note can offer Undo.
+    addCookEvent: async function (recipeId, uid, cookedAt) {
+      var res = check(await sb.from("cook_events").insert({
+        recipe_id: recipeId, cooked_at: cookedAt, cooked_by: uid, created_at: Date.now()
+      }).select("id").single());
+      return res.data.id;
+    },
+
+    moveCookEvent: async function (id, cookedAt) {
+      check(await sb.from("cook_events").update({ cooked_at: cookedAt }).eq("id", id));
+    },
+
+    deleteCookEvent: async function (id) {
+      check(await sb.from("cook_events").delete().eq("id", id));
+    },
+
+    onCheckins: function (cb) { return liveTable("checkins", mapCheckin, cb); },
+
+    saveCheckin: async function (uid, day, state, phase) {
+      check(await sb.from("checkins").upsert(
+        { uid: uid, day: day, state: state, phase: phase || null, created_at: Date.now() },
+        { onConflict: "uid,day" }
+      ));
+    },
+
+    // One row per device (endpoint); turning reminders on again refreshes it.
+    savePushSubscription: async function (uid, sub) {
+      check(await sb.from("push_subscriptions").upsert({
+        endpoint: sub.endpoint, uid: uid, p256dh: sub.p256dh, auth: sub.auth,
+        tz: sub.tz, created_at: Date.now()
+      }, { onConflict: "endpoint" }));
+    },
+
+    deletePushSubscription: async function (endpoint) {
+      check(await sb.from("push_subscriptions").delete().eq("endpoint", endpoint));
     }
   };
 })();

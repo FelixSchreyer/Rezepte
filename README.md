@@ -73,6 +73,8 @@ Add a test by creating `tests/whatever.test.js` and importing it from
 
 ```
 index.html          Markup shell — loads the stylesheets and src/main.js
+manifest.webmanifest  Makes "Add to Home Screen" a standalone web app (needed for push)
+sw.js               Service worker for the daily check-in push only — caches nothing
 serve.sh            Local dev server (python3 stdlib)
 icons/
   icon.svg          The bear, round — browser-tab icon and the source of:
@@ -95,6 +97,8 @@ src/
     members.js      Approved / admin checks, member lists (pure)
     photos.js       Shrinks a photo in the browser before upload
     shopping.js     Scales and adds up ingredients for the shopping list (pure)
+    checkins.js     Days, cooked times, when the daily check-in is due
+    push.js         Web push: availability, subscribe, unsubscribe
   ui/
     app.js          render() — rebuilds the view from `state`
     screens.js      Loading / connection-failed / waiting / no-access screens
@@ -108,7 +112,9 @@ src/
     add-recipe.js   Add-a-recipe form
     photo-picker.js "Add a photo" button (camera or library on phones)
     shopping.js     Shopping list panel: people per recipe, export, clear
-    detail.js       Recipe detail + rating form
+    detail.js       Recipe detail, "Cooked" button + rating form
+    checkin.js      "How are you today?" — the patient's daily check-in
+    reminder.js     Account page (patients): check-in time + notifications
     notifications.js  Account page: recipes waiting for the patient's rating
     members.js      Account page (admins): let people in, decline, remove access
 styles/             One stylesheet per concern; tokens.css must load first
@@ -124,6 +130,7 @@ db/
   migrate-004-edit-recipes.sql  Lets approved members edit a saved recipe
   migrate-005-delete-recipes.sql  Lets whoever added a recipe, or an admin, delete it
   migrate-006-phase-status.sql  Adds the patient's phase status ("How I'm doing")
+  migrate-007-cooking-checkins.sql  Adds "Cooked", the daily check-in and push reminders
 docs/
   architecture.md   How the pieces fit together
 ```
@@ -172,6 +179,30 @@ Function. Without it, everything else works and the box shows an error.
 3. **Edge Functions → Secrets:** add `GEMINI_API_KEY` with the key.
 
 On Gemini's free tier Google may use the text to improve its models.
+
+### Daily check-in notifications (optional)
+
+The patient's "How are you today?" works without this: once it's past their
+reminder time, a dot on the avatar asks. Push notifications additionally need
+the `daily-checkin` Edge Function, a cron job, and the app served over
+**HTTPS** (localhost only works on the computer itself). On an iPhone they
+only arrive when the app was added to the Home Screen and opened from there
+(iOS 16.4 or later) — a home-screen icon added before `manifest.webmanifest`
+existed has to be removed and added again.
+
+1. `npx web-push generate-vapid-keys` (any computer with Node). Put the
+   **public** key into `VAPID_PUBLIC_KEY` in [src/config.js](src/config.js).
+2. Deploy [supabase/functions/daily-checkin/index.ts](supabase/functions/daily-checkin/index.ts)
+   as `daily-checkin`, with **Verify JWT switched off**.
+3. **Edge Functions → Secrets:** `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`,
+   `VAPID_SUBJECT` (`mailto:` + your address), `CRON_SECRET` (a long random string).
+4. **Database → Extensions:** enable `pg_cron` and `pg_net`, then run the
+   `cron.schedule(...)` snippet at the end of
+   [db/migrate-007-cooking-checkins.sql](db/migrate-007-cooking-checkins.sql)
+   with your `CRON_SECRET`.
+5. On the patient's phone: account panel → **Daily reminder** → *Turn on
+   notifications*. To test without waiting, call the function by hand with
+   `{"force": true}` and the `x-cron-secret` header.
 
 "Forgot password" is not built in: it needs a mail provider (custom SMTP in
 Supabase). Until then an admin can set a new password for someone under

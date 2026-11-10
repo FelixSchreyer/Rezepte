@@ -17,6 +17,7 @@
 import { state } from "../state.js";
 import { render } from "./app.js";
 import { closeModal } from "./modal.js";
+import { isStandalone } from "../lib/push.js";
 
 // How many "back" steps the current UI has.
 function depth() {
@@ -77,11 +78,6 @@ var START_SLOP = 10;       // px before deciding between swipe and scroll
 var DISTANCE = 90;         // px to the right that counts as "back"
 var SPEED = 0.5;           // px/ms that counts as a flick
 var EDGE = 24;             // px at the left edge left to Safari's own gesture
-
-function isStandalone() {
-  return window.navigator.standalone === true ||
-    (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
-}
 
 function startsInField(target) {
   return !!(target.closest && target.closest("input, textarea, select, [contenteditable]"));

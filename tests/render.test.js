@@ -10,6 +10,10 @@ import { state, root } from "../src/state.js";
 import { render } from "../src/ui/app.js";
 import { goBack } from "../src/ui/navigation.js";
 import { SEED_RECIPES } from "../src/backend/seed.js";
+import { openCheckin } from "../src/ui/modal.js";
+import { dayKey, shiftDay } from "../src/lib/checkins.js";
+
+var TODAY = dayKey(Date.now());
 
 function setState(patch) {
   state.ready = true;
@@ -23,6 +27,10 @@ function setState(patch) {
   state.ratings = [];
   state.shopping = [];
   state.shoppingTidy = null;
+  state.cookEvents = [];
+  // Checked in already, so whether the reminder is due doesn't depend on
+  // the time the tests run at.
+  state.checkins = [{ id: "k-today", uid: "mock-user-alex", day: TODAY, state: "good", phase: null }];
   state.activePhase = null;
   state.phaseChoice = null;
   state.activeTags = {};
@@ -426,7 +434,7 @@ describe("render — account panel", function () {
     var admin = profile({ isAdmin: true });
     setState({ myProfile: admin, members: { "mock-user-alex": admin }, modal: account("menu") });
     render();
-    expect(rowLabels()).toEqual(["Recipes to rate", "Members & requests", "Your details", "Sign out"]);
+    expect(rowLabels()).toEqual(["How are you today?", "Recipes to rate", "Members & requests", "Your details", "Daily reminder", "Sign out"]);
   });
 
   it("offers a plain member only their details and sign-out", function () {
@@ -607,5 +615,99 @@ describe("render — modals", function () {
     render();
     expect(root.querySelectorAll(".overlay")).toHaveLength(1);
     expect(root.textContent).toContain("Welcome to Gut & Grain");
+  });
+});
+
+describe("render — cooked and the daily check-in", function () {
+  var congee = SEED_RECIPES[0];
+
+  function patient(over) {
+    var p = { id: "mock-user-alex", email: "alex@example.com", name: "Alex Moreau", role: "patient", status: "approved", isAdmin: false, joinedAt: 1 };
+    Object.keys(over || {}).forEach(function (k) { p[k] = over[k]; });
+    return p;
+  }
+
+  it("offers \"Cooked\" on a recipe, with the hold hint until it was cooked once", function () {
+    setState({ recipes: SEED_RECIPES, modal: { type: "detail", recipeId: congee.id, ratingStars: 0, ratingTol: "", ratingComment: "" } });
+    render();
+    expect(root.querySelectorAll(".cook-btn")).toHaveLength(1);
+    expect(root.querySelector(".detail-cook-last").textContent).toContain("hold to pick a time");
+  });
+
+  it("says when a recipe was last cooked", function () {
+    setState({
+      recipes: SEED_RECIPES,
+      cookEvents: [{ id: "c1", recipeId: congee.id, cookedAt: Date.now() - 60000, cookedBy: "mock-user-sam" }],
+      modal: { type: "detail", recipeId: congee.id, ratingStars: 0, ratingTol: "", ratingComment: "" }
+    });
+    render();
+    expect(root.querySelector(".detail-cook-last").textContent).toContain("Last cooked today");
+  });
+
+  it("shows Change time and Undo right after logging", function () {
+    setState({ recipes: SEED_RECIPES, modal: { type: "detail", recipeId: congee.id, ratingStars: 0, ratingTol: "", ratingComment: "", cookNote: { id: "c1", at: Date.now() } } });
+    render();
+    expect(root.querySelector(".detail-cook-note").textContent).toContain("Change time");
+    expect(root.querySelector(".detail-cook-note").textContent).toContain("Undo");
+  });
+
+  it("offers quick picks and a date-time field when picking a time", function () {
+    setState({ recipes: SEED_RECIPES, modal: { type: "detail", recipeId: congee.id, ratingStars: 0, ratingTol: "", ratingComment: "", cookPicker: { id: null, value: "2026-11-09T19:00" } } });
+    render();
+    expect(root.querySelector(".cook-picker input[type=datetime-local]").value).toBe("2026-11-09T19:00");
+    expect(root.textContent).toContain("Yesterday, dinner");
+  });
+
+  it("badges the avatar once the check-in is due", function () {
+    setState({ myProfile: patient({ checkinTime: "00:00" }), checkins: [] });
+    render();
+    expect(root.querySelector(".profile-chip .icon-badge").textContent).toBe("1");
+  });
+
+  it("does not remind members", function () {
+    setState({ myProfile: patient({ role: "member", checkinTime: "00:00" }), checkins: [] });
+    render();
+    expect(root.querySelectorAll(".profile-chip .icon-badge")).toHaveLength(0);
+  });
+
+  it("asks with three answers and marks the one given", function () {
+    setState({ modal: { type: "checkin", day: TODAY, saving: "", error: "" } });
+    render();
+    expect(root.querySelector(".overlay h2").textContent).toBe("How are you today?");
+    var on = Array.from(root.querySelectorAll(".checkin-choice")).map(function (b) { return b.dataset.on; });
+    expect(on).toEqual(["true", "false", "false"]);
+  });
+
+  it("lists what was cooked that day, and offers yesterday when it's missing", function () {
+    var noon = new Date(); noon.setHours(12, 0, 0, 0);
+    setState({
+      recipes: SEED_RECIPES,
+      cookEvents: [{ id: "c1", recipeId: congee.id, cookedAt: noon.getTime(), cookedBy: "mock-user-sam" }],
+      modal: { type: "checkin", day: TODAY, saving: "", error: "" }
+    });
+    render();
+    expect(root.querySelector(".checkin-cooked").textContent).toContain(congee.title);
+    expect(root.querySelectorAll(".checkin-other")).toHaveLength(1);
+  });
+
+  it("asks about yesterday when opened for yesterday", function () {
+    setState({ modal: { type: "checkin", day: shiftDay(TODAY, -1), saving: "", error: "" } });
+    render();
+    expect(root.querySelector(".overlay h2").textContent).toBe("How were you yesterday?");
+  });
+
+  it("opens today's check-in for a future or malformed day", function () {
+    setState({});
+    openCheckin("2999-01-01");
+    expect(state.modal.day).toBe(TODAY);
+    openCheckin("tomorrow");
+    expect(state.modal.day).toBe(TODAY);
+  });
+
+  it("shows the reminder time and a word on notifications", function () {
+    setState({ myProfile: patient({ checkinTime: "21:15" }), modal: { type: "account", view: "reminder", name: "", role: "", error: "" } });
+    render();
+    expect(root.querySelector(".overlay input[type=time]").value).toBe("21:15");
+    expect(root.querySelectorAll(".reminder-note")).toHaveLength(1);
   });
 });

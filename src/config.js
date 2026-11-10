@@ -27,6 +27,20 @@ export var TOLERANCE = [
 export var TOL_MAP = {};
 TOLERANCE.forEach(function(t){ TOL_MAP[t.id] = t; });
 
+// The patient's daily check-in: how they were doing that day. Same ids as
+// TOLERANCE, so the two can be read side by side later.
+export var CHECKIN_STATES = [
+  { id: "good",   emoji: "😊", label: "Good" },
+  { id: "medium", emoji: "😐", label: "So-so" },
+  { id: "poor",   emoji: "😣", label: "Bad" }
+];
+export var DEFAULT_CHECKIN_TIME = "20:00";
+
+// Public half of the VAPID key pair the daily-checkin Edge Function signs
+// push messages with (the private half is its secret). Empty = push is not
+// set up yet; the reminder then only shows inside the app. See README.
+export var VAPID_PUBLIC_KEY = "";
+
 // The Apple Shortcut that "Add to Reminders" runs (see ui/shopping.js).
 // Everyone who exports creates a shortcut with exactly this name once.
 export var SHOPPING_SHORTCUT = "Gut & Grain Shopping";

@@ -18,11 +18,13 @@ export var state = {
   photoUrlsAt: 0,        // when photoUrls was last filled from scratch
   ratings: [],           // [{id, recipeId, uid, name, stars, tolerance, comment}]
   shopping: [],          // [{recipeId, people, addedBy, addedAt}] — the family's list
-  shoppingTidy: null,    // {source, items}: the AI-tidied list, while it still matches
+  shoppingTidy: null,
+  cookEvents: [],        // [{id, recipeId, cookedAt, cookedBy}] — "Cooked", counts as eaten by the patient
+  checkins: [],          // [{id, uid, day, state, phase}] — the patient's daily "How are you today?"    // {source, items}: the AI-tidied list, while it still matches
   activePhase: null,
   phaseChoice: null,     // {phase, at}: this device's latest own phase pick (see effectivePhase)
   activeTags: {},        // tag -> true
   tagMenuOpen: false,    // tag filter dropdown
   search: "",
-  modal: null            // {type: 'onboarding'|'add'|'detail'|'account'|'shopping', ...}
+  modal: null            // {type: 'onboarding'|'add'|'detail'|'account'|'shopping'|'checkin', ...}
 };

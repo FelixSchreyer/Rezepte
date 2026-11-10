@@ -88,7 +88,7 @@ function uuid() {
 
 // ---------------- subscriptions ----------------
 
-var listeners = { members: [], recipes: [], ratings: [], shopping: [] };
+var listeners = { members: [], recipes: [], ratings: [], shopping: [], cookEvents: [], checkins: [] };
 var syncCb = function () {};
 
 function rowsFor(table, db) {
@@ -200,7 +200,8 @@ export const MockBackend = {
       lastPhase: null,
       lastPhaseAt: 0,
       currentPhase: null,
-      currentPhaseAt: 0
+      currentPhaseAt: 0,
+      checkinTime: null
     };
     write(db);
     emit("members");
@@ -402,11 +403,13 @@ export const MockBackend = {
     db.recipes = db.recipes.filter(function (r) { return r.id !== recipeId; });
     db.ratings = db.ratings.filter(function (r) { return r.recipeId !== recipeId; });
     db.shopping = (db.shopping || []).filter(function (s) { return s.recipeId !== recipeId; });
+    db.cookEvents = (db.cookEvents || []).filter(function (c) { return c.recipeId !== recipeId; });
     if (recipe.photoPath && db.photos) delete db.photos[recipe.photoPath];
     write(db);
     emit("recipes");
     emit("ratings");
     emit("shopping");
+    emit("cookEvents");
     return later();
   },
 
@@ -471,6 +474,78 @@ export const MockBackend = {
     db.members[uid].currentPhaseAt = at;
     write(db);
     emit("members");
+    return later();
+  },
+
+  setCheckinTime: function (uid, time) {
+    var db = read();
+    if (!db.members[uid]) return failLater("no members row to update");
+    db.members[uid].checkinTime = time;
+    write(db);
+    emit("members");
+    return later();
+  },
+
+  onCookEvents: function (cb) { return subscribe("cookEvents", cb); },
+
+  addCookEvent: function (recipeId, uid, cookedAt) {
+    var db = read();
+    db.cookEvents = db.cookEvents || [];
+    var id = uuid();
+    db.cookEvents.push({ id: id, recipeId: recipeId, cookedAt: cookedAt, cookedBy: uid, createdAt: Date.now() });
+    write(db);
+    emit("cookEvents");
+    return later(id);
+  },
+
+  // Mirrors the policies: only whoever logged an event may move or remove it.
+  moveCookEvent: function (id, cookedAt) {
+    var db = read();
+    var ev = (db.cookEvents || []).filter(function (c) { return c.id === id; })[0];
+    if (!ev || ev.cookedBy !== db.session) return failLater("not your cook event");
+    ev.cookedAt = cookedAt;
+    write(db);
+    emit("cookEvents");
+    return later();
+  },
+
+  deleteCookEvent: function (id) {
+    var db = read();
+    var ev = (db.cookEvents || []).filter(function (c) { return c.id === id; })[0];
+    if (ev && ev.cookedBy !== db.session) return failLater("not your cook event");
+    db.cookEvents = (db.cookEvents || []).filter(function (c) { return c.id !== id; });
+    write(db);
+    emit("cookEvents");
+    return later();
+  },
+
+  onCheckins: function (cb) { return subscribe("checkins", cb); },
+
+  // Mirrors unique (uid, day): a second check-in for the day replaces the first.
+  saveCheckin: function (uid, day, state, phase) {
+    var db = read();
+    db.checkins = db.checkins || [];
+    var row = db.checkins.filter(function (c) { return c.uid === uid && c.day === day; })[0];
+    if (row) { row.state = state; row.phase = phase || null; row.createdAt = Date.now(); }
+    else db.checkins.push({ id: uuid(), uid: uid, day: day, state: state, phase: phase || null, createdAt: Date.now() });
+    write(db);
+    emit("checkins");
+    return later();
+  },
+
+  // Stored so the flow can be clicked through; nothing ever sends to them.
+  savePushSubscription: function (uid, sub) {
+    var db = read();
+    db.pushSubscriptions = db.pushSubscriptions || {};
+    db.pushSubscriptions[sub.endpoint] = { uid: uid, p256dh: sub.p256dh, auth: sub.auth, tz: sub.tz };
+    write(db);
+    return later();
+  },
+
+  deletePushSubscription: function (endpoint) {
+    var db = read();
+    if (db.pushSubscriptions) delete db.pushSubscriptions[endpoint];
+    write(db);
     return later();
   }
 };

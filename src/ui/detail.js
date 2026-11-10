@@ -2,13 +2,14 @@
 
 import { PHASE_MAP, TOLERANCE, TOL_MAP } from "../config.js";
 import { state } from "../state.js";
-import { el } from "../lib/dom.js";
+import { el, sinceLabel } from "../lib/dom.js";
 import { ratingsFor, ratingSummary, starString, recipePhases } from "../lib/recipes.js";
 import { Backend } from "../backend/index.js";
 import { closeModal, openEditRecipe, renderModalInPlace } from "./modal.js";
 import { photoPicker } from "./photo-picker.js";
 import { peopleStepper, setPeople, shoppingItemFor } from "./shopping.js";
 import { DEFAULT_SERVINGS } from "../lib/shopping.js";
+import { fromLocalInput, lastCooked, quickCookTimes, toLocalInput } from "../lib/checkins.js";
 
 export function renderDetail(m) {
   var r = state.recipes.find(function(x){ return x.id === m.recipeId; });
@@ -38,6 +39,7 @@ export function renderDetail(m) {
   var servings = r.servings || DEFAULT_SERVINGS;
   wrap.appendChild(el("div", { class: "meta-line", style: "margin-top:8px;", text: "Added by " + (r.addedByName || "someone") + " · Serves " + servings + (r.prepMinutes ? " · " + r.prepMinutes + " min" : "") }));
   wrap.appendChild(renderShoppingControl(m, r, servings));
+  wrap.appendChild(renderCookControl(m, r));
 
   var ingSection = el("div", { class: "detail-section" }, [ el("h4", { text: "Ingredients" }) ]);
   var ul = el("ul", { class: "ingredient-list" });
@@ -156,6 +158,170 @@ function renderShoppingControl(m, r, servings) {
   }
   if (m.shopError) box.appendChild(el("div", { class: "form-error", style: "margin:6px 0 0; flex-basis:100%;", text: m.shopError }));
   return box;
+}
+
+// "Cooked", for everyone: it counts as eaten by the patient. A tap logs it
+// for now, then says so with "Change time" and "Undo"; holding the button
+// goes straight to picking a time (yesterday's leftovers, a late entry).
+//
+//   m.cookNote    { id, at }       the event just logged, while its note shows
+//   m.cookPicker  { id, value }    picking a time; id = the event to move, or
+//                                  null to log a new one
+var COOK_NOTE_MS = 8000;
+
+function renderCookControl(m, r) {
+  var box = el("div", { class: "detail-cook" });
+  var btn = el("button", { class: "btn btn-sm cook-btn", attrs: { type: "button" }, text: "✓ Cooked" });
+  if (m.cookBusy) btn.setAttribute("disabled", "");
+  attachLongPress(btn, function(){ logCooked(m, r, Date.now()); }, function(){ openCookPicker(m, null, Date.now()); });
+  box.appendChild(btn);
+
+  var note = m.cookNote;
+  if (note && !m.cookPicker) {
+    box.appendChild(el("span", { class: "detail-cook-note" }, [
+      document.createTextNode("Cooked · " + sinceLabel(note.at) + " — "),
+      el("button", { class: "link-btn", attrs: { type: "button" }, text: "Change time", on: { click: function(){ openCookPicker(m, note.id, note.at); } } }),
+      document.createTextNode(" · "),
+      el("button", { class: "link-btn", attrs: { type: "button" }, text: "Undo", on: { click: function(){ undoCooked(m, note); } } })
+    ]));
+  } else if (!m.cookPicker) {
+    var last = lastCooked(r.id);
+    box.appendChild(el("span", { class: "detail-cook-last", text: last
+      ? "Last cooked " + sinceLabel(last.cookedAt)
+      : "Tap when it's cooked · hold to pick a time" }));
+  }
+  if (m.cookPicker) box.appendChild(renderCookPicker(m, r));
+  if (m.cookError) box.appendChild(el("div", { class: "form-error", style: "margin:6px 0 0; flex-basis:100%;", text: m.cookError }));
+  return box;
+}
+
+function renderCookPicker(m, r) {
+  var picker = m.cookPicker;
+  var box = el("div", { class: "cook-picker" }, [ el("div", { class: "cook-picker-q", text: "When was it cooked?" }) ]);
+  var chips = el("div", { class: "cook-picker-chips" });
+  quickCookTimes(Date.now()).forEach(function(q){
+    chips.appendChild(el("button", { class: "btn btn-sm", attrs: { type: "button" }, text: q.label, on: { click: function(){ saveCookTime(m, r, q.at); } } }));
+  });
+  box.appendChild(chips);
+
+  var input = el("input", { attrs: { type: "datetime-local", max: toLocalInput(Date.now()), "aria-label": "Date and time cooked" } });
+  input.value = picker.value;
+  input.addEventListener("input", function(e){ picker.value = e.target.value; });
+  box.appendChild(el("div", { class: "cook-picker-row" }, [
+    input,
+    el("button", { class: "btn btn-primary btn-sm", attrs: { type: "button" }, text: "Save", on: { click: function(){
+      var at = fromLocalInput(picker.value);
+      if (at === null) { m.cookError = "Pick a date and time."; renderModalInPlace(); return; }
+      saveCookTime(m, r, at);
+    } } }),
+    el("button", { class: "btn btn-ghost btn-sm", attrs: { type: "button" }, text: "Cancel", on: { click: function(){
+      m.cookPicker = null; m.cookError = ""; renderModalInPlace();
+    } } })
+  ]));
+  return box;
+}
+
+function openCookPicker(m, id, at) {
+  m.cookPicker = { id: id, value: toLocalInput(at) };
+  m.cookError = "";
+  renderModalInPlace();
+}
+
+function cookFailed(m) {
+  m.cookBusy = false;
+  m.cookError = "Couldn't save — check your connection and try again.";
+  if (state.modal === m) renderModalInPlace();
+}
+
+// The note goes away by itself after a while, unless it was replaced.
+function showCookNote(m, note) {
+  m.cookBusy = false;
+  m.cookPicker = null;
+  m.cookNote = note;
+  if (state.modal === m) renderModalInPlace();
+  setTimeout(function(){
+    if (m.cookNote !== note || m.cookPicker) return;
+    m.cookNote = null;
+    if (state.modal === m) renderModalInPlace();
+  }, COOK_NOTE_MS);
+}
+
+function logCooked(m, r, at) {
+  if (m.cookBusy) return;
+  m.cookBusy = true;
+  m.cookError = "";
+  renderModalInPlace();
+  Backend.addCookEvent(r.id, state.uid, at).then(function(id){
+    showCookNote(m, { id: id, at: at });
+  }).catch(function(){ cookFailed(m); });
+}
+
+function saveCookTime(m, r, at) {
+  if (at > Date.now() + 60000) { m.cookError = "That's still in the future."; renderModalInPlace(); return; }
+  var id = m.cookPicker && m.cookPicker.id;
+  if (!id) { m.cookPicker = null; logCooked(m, r, at); return; }
+  m.cookBusy = true;
+  m.cookError = "";
+  renderModalInPlace();
+  Backend.moveCookEvent(id, at).then(function(){
+    showCookNote(m, { id: id, at: at });
+  }).catch(function(){ cookFailed(m); });
+}
+
+function undoCooked(m, note) {
+  m.cookNote = null;
+  renderModalInPlace();
+  Backend.deleteCookEvent(note.id).catch(function(){
+    m.cookNote = note;
+    cookFailed(m);
+  });
+}
+
+// Tap or hold. Holding shows a bar filling along the button (CSS
+// .pressing) and fires after HOLD_MS; moving the finger past SLOP is a
+// scroll and cancels. iOS's own long-press reactions (text selection, the
+// callout) are switched off in CSS and through contextmenu. A keyboard
+// "click" is always a tap.
+//
+// The click that follows a hold must not count as a tap. It may land on a
+// fresh button — the hold re-renders the panel, and iOS sends the click to
+// whatever is under the finger on release — so the "just held" mark lives
+// here, outside any one button, and the next press clears it.
+var HOLD_MS = 500;
+var SLOP = 10;
+var heldAt = 0;
+
+function attachLongPress(node, onTap, onHold) {
+  var timer = null, x = 0, y = 0;
+  function cancel() {
+    clearTimeout(timer);
+    timer = null;
+    node.classList.remove("pressing");
+  }
+  node.addEventListener("pointerdown", function(e){
+    if (e.button !== 0 || node.disabled) return;
+    heldAt = 0;
+    x = e.clientX; y = e.clientY;
+    node.classList.add("pressing");
+    timer = setTimeout(function(){
+      timer = null;
+      heldAt = Date.now();
+      node.classList.remove("pressing");
+      if (navigator.vibrate) navigator.vibrate(10);
+      onHold();
+    }, HOLD_MS);
+  });
+  node.addEventListener("pointermove", function(e){
+    if (timer && (Math.abs(e.clientX - x) > SLOP || Math.abs(e.clientY - y) > SLOP)) cancel();
+  });
+  node.addEventListener("pointerup", function(){ if (timer) cancel(); });
+  node.addEventListener("pointercancel", cancel);
+  node.addEventListener("pointerleave", cancel);
+  node.addEventListener("contextmenu", function(e){ e.preventDefault(); });
+  node.addEventListener("click", function(){
+    if (heldAt && Date.now() - heldAt < 5000) { heldAt = 0; return; }
+    onTap();
+  });
 }
 
 // Any approved member can add a photo to a recipe, or replace it. The rest

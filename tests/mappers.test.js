@@ -6,18 +6,18 @@
 // safe, so the null cases below are the point of this file.
 
 import { describe, it, expect } from "./harness.js";
-import { mapMember, mapRecipe, mapRating, mapShoppingItem } from "../src/backend/mappers.js";
+import { mapMember, mapRecipe, mapRating, mapShoppingItem, mapCookEvent, mapCheckin } from "../src/backend/mappers.js";
 
 describe("mapMember", function () {
   it("renames the snake_case columns", function () {
     expect(mapMember({
       id: "u1", email: "a@x.org", name: "Alex", role: "patient", status: "approved", is_admin: true,
       joined_at: 1700000000000, last_phase: "moderate", last_phase_at: 5,
-      current_phase: "severe", current_phase_at: 6
+      current_phase: "severe", current_phase_at: 6, checkin_time: "21:30"
     })).toEqual({
       id: "u1", email: "a@x.org", name: "Alex", role: "patient", status: "approved", isAdmin: true,
       joinedAt: 1700000000000, lastPhase: "moderate", lastPhaseAt: 5,
-      currentPhase: "severe", currentPhaseAt: 6
+      currentPhase: "severe", currentPhaseAt: 6, checkinTime: "21:30"
     });
   });
 
@@ -26,6 +26,7 @@ describe("mapMember", function () {
     expect(m.lastPhaseAt).toBe(0);
     expect(m.currentPhase).toBeNull();
     expect(m.currentPhaseAt).toBe(0);
+    expect(m.checkinTime).toBeNull();
   });
 
   it("turns a missing is_admin into false", function () {
@@ -117,5 +118,19 @@ describe("mapShoppingItem", function () {
   it("renames the snake_case columns", function () {
     expect(mapShoppingItem({ recipe_id: "r1", people: 3, added_by: "u1", added_at: 5 }))
       .toEqual({ recipeId: "r1", people: 3, addedBy: "u1", addedAt: 5 });
+  });
+});
+
+describe("mapCookEvent", function () {
+  it("renames the snake_case columns", function () {
+    expect(mapCookEvent({ id: "c1", recipe_id: "r1", cooked_at: 100, cooked_by: "u1", created_at: 101 }))
+      .toEqual({ id: "c1", recipeId: "r1", cookedAt: 100, cookedBy: "u1", createdAt: 101 });
+  });
+});
+
+describe("mapCheckin", function () {
+  it("renames the snake_case columns and keeps a missing phase as null", function () {
+    expect(mapCheckin({ id: "k1", uid: "u1", day: "2026-11-10", state: "poor", phase: null, created_at: 5 }))
+      .toEqual({ id: "k1", uid: "u1", day: "2026-11-10", state: "poor", phase: null, createdAt: 5 });
   });
 });

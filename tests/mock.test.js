@@ -86,7 +86,7 @@ describe("MockBackend — profiles", function () {
     expect(p).toEqual({
       id: uid, email: "jo@example.com", name: "Jo", role: "member",
       status: "pending", isAdmin: false, joinedAt: 42, lastPhase: null,
-      lastPhaseAt: 0, currentPhase: null, currentPhaseAt: 0
+      lastPhaseAt: 0, currentPhase: null, currentPhaseAt: 0, checkinTime: null
     });
   });
 
@@ -473,6 +473,69 @@ describe("MockBackend — ratings", function () {
     off();
     var mine = got.filter(function (r) { return r.recipeId === "r-stirfry"; });
     expect(mine).toHaveLength(2);
+  });
+});
+
+describe("MockBackend — cooked and check-ins", function () {
+  beforeAll(async function () {
+    reset();
+    await MockBackend.connect();
+    await MockBackend.signIn("alex@example.com", SEED_PASSWORD);
+  });
+
+  it("logs a cook event and hands back its id", async function () {
+    var got = [];
+    var off = MockBackend.onCookEvents(function (rows) { got = rows; });
+    var id = await MockBackend.addCookEvent("r-congee", ALEX, 1000);
+    off();
+    var ev = got.filter(function (c) { return c.id === id; })[0];
+    expect(ev.recipeId).toBe("r-congee");
+    expect(ev.cookedAt).toBe(1000);
+    expect(ev.cookedBy).toBe(ALEX);
+  });
+
+  it("moves and removes your own cook event", async function () {
+    var got = [];
+    var off = MockBackend.onCookEvents(function (rows) { got = rows; });
+    var id = await MockBackend.addCookEvent("r-congee", ALEX, 1000);
+    await MockBackend.moveCookEvent(id, 2000);
+    expect(got.filter(function (c) { return c.id === id; })[0].cookedAt).toBe(2000);
+    await MockBackend.deleteCookEvent(id);
+    off();
+    expect(got.filter(function (c) { return c.id === id; })).toHaveLength(0);
+  });
+
+  it("refuses to move someone else's cook event", async function () {
+    var id = await MockBackend.addCookEvent("r-congee", "mock-user-sam", 1000);
+    var failed = false;
+    try { await MockBackend.moveCookEvent(id, 5); } catch (e) { failed = true; }
+    expect(failed).toBe(true);
+  });
+
+  it("keeps one check-in per person and day, the latest answer winning", async function () {
+    var got = [];
+    var off = MockBackend.onCheckins(function (rows) { got = rows; });
+    await MockBackend.saveCheckin(ALEX, "2026-11-10", "good", "moderate");
+    await MockBackend.saveCheckin(ALEX, "2026-11-10", "poor", "moderate");
+    await MockBackend.saveCheckin(ALEX, "2026-11-09", "medium", null);
+    off();
+    var mine = got.filter(function (c) { return c.uid === ALEX; });
+    expect(mine).toHaveLength(2);
+    expect(mine.filter(function (c) { return c.day === "2026-11-10"; })[0].state).toBe("poor");
+  });
+
+  it("saves the reminder time on the member", async function () {
+    await MockBackend.setCheckinTime(ALEX, "21:30");
+    expect((await MockBackend.fetchProfile(ALEX)).checkinTime).toBe("21:30");
+  });
+
+  it("drops a recipe's cook events when it is deleted", async function () {
+    var got = [];
+    var off = MockBackend.onCookEvents(function (rows) { got = rows; });
+    await MockBackend.addCookEvent("r-eggs", ALEX, 1000);
+    await MockBackend.deleteRecipe("r-eggs");
+    off();
+    expect(got.filter(function (c) { return c.recipeId === "r-eggs"; })).toHaveLength(0);
   });
 });
 
