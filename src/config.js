@@ -39,7 +39,7 @@ export var DEFAULT_CHECKIN_TIME = "20:00";
 // Public half of the VAPID key pair the daily-checkin Edge Function signs
 // push messages with (the private half is its secret). Empty = push is not
 // set up yet; the reminder then only shows inside the app. See README.
-export var VAPID_PUBLIC_KEY = "";
+export var VAPID_PUBLIC_KEY = "BD5A6hDvfgQ7QnuJ1UpBcumqutQJ6UHLfa6ya2yqFvA-KYW7N5EI8uO9ASoAb52dlBI6ErZZOw7wQH4SP9Ggop4";
 
 // The Apple Shortcut that "Add to Reminders" runs (see ui/shopping.js).
 // Everyone who exports creates a shortcut with exactly this name once.
